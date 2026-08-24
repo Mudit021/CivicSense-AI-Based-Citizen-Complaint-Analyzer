@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Complaints{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Complaints</h1>
+    <p class="page-sub">{{ rows | length }} complaints shown · every row was auto-classified and prioritized by the AI pipeline</p>
+  </div>
+  <a class="btn" href="{{ url_for('new_complaint') }}">➕ New complaint</a>
+</div>
+
+<form class="card" method="get" style="padding: 14px 18px; margin-bottom: 18px;">
+  <div class="filters">
+    <select name="category">
+      <option value="">All categories</option>
+      {% for c in categories %}<option value="{{ c }}" {{ 'selected' if filters.category == c }}>{{ c }}</option>{% endfor %}
+    </select>
+    <select name="priority">
+      <option value="">All priorities</option>
+      {% for p in priorities %}<option value="{{ p }}" {{ 'selected' if filters.priority == p }}>{{ p }}</option>{% endfor %}
+    </select>
+    <select name="ward">
+      <option value="">All wards</option>
+      {% for w in wards %}<option value="{{ w }}" {{ 'selected' if filters.ward == w }}>{{ w }}</option>{% endfor %}
+    </select>
+    <select name="status">
+      <option value="">All statuses</option>
+      {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if filters.status == s }}>{{ s }}</option>{% endfor %}
+    </select>
+    <div class="search" style="flex:1; min-width:220px">
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Search complaints…">
+    </div>
+    <button class="btn secondary" type="submit">Filter</button>
+    <a class="btn secondary" href="{{ url_for('complaints') }}">Clear</a>
+  </div>
+</form>
+
+<div class="card" style="padding: 8px 0;">
+  {% if rows %}
+  <div class="table-wrap">
+    <table class="data">
+      <thead>
+        <tr>
+          <th>ID</th><th>Complaint</th><th>Category</th><th>Ward</th>
+          <th>Priority</th><th>Status</th><th>Source</th><th>Confidence</th><th>Received</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in rows %}
+        <tr>
+          <td class="muted">#{{ c.id }}</td>
+          <td class="title-cell" style="max-width: 300px">
+            {{ c.title }}
+            {% if c.is_duplicate %}<span class="badge badge-dup" title="Duplicate of #{{ c.duplicate_of }}">dup</span>{% endif %}
+          </td>
+          <td><span class="badge badge-cat">{{ c.category }}</span></td>
+          <td>{{ c.ward }}</td>
+          <td><span class="badge badge-{{ c.priority | lower }}">{{ c.priority }}</span></td>
+          <td>
+            <form method="post" action="{{ url_for('update_status', cid=c.id) }}">
+              <select name="status" onchange="this.form.submit()"
+                      class="status-select badge badge-{{ c.status | lower | replace(' ', '-') }}"
+                      title="Update status">
+                {% for s in statuses %}
+                <option value="{{ s }}" {{ 'selected' if c.status == s }}>{{ s }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          </td>
+          <td class="muted">{{ c.source }}</td>
+          <td class="mono">{{ (c.confidence * 100) | round(1) if c.confidence else '—' }}%</td>
+          <td class="muted">{{ c.created_at | pretty_date }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">No complaints match your filters.</div>
+  {% endif %}
+  {% if rows | length >= 300 %}
+  <p class="muted" style="padding: 10px 18px 0; font-size: 12px">Showing the first 300 most recent complaints.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

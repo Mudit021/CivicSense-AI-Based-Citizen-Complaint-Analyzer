@@ -1,0 +1,13 @@
+{
+  "accuracy": 0.8219,
+  "accuracy_std": 0.0547,
+  "samples": 152,
+  "model": "TF-IDF + LinearSVC",
+  "folds": [
+    0.9032,
+    0.8065,
+    0.7667,
+    0.8667,
+    0.7667
+  ]
+}

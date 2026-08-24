@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}New Complaint{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Register a citizen complaint</h1>
+    <p class="page-sub">Simulates intake from any channel (mobile app, web portal, email, call center). The AI pipeline classifies, prioritises and de-duplicates instantly.</p>
+  </div>
+</div>
+
+<div class="grid grid-2">
+  <div class="card">
+    <form method="post">
+      <div class="field">
+        <label for="title">Title</label>
+        <input type="text" id="title" name="title" placeholder="e.g. Large pothole near school in Ward 7">
+      </div>
+      <div class="field">
+        <label for="description">Describe the problem *</label>
+        <textarea id="description" name="description" placeholder="Write the complaint exactly as a citizen would…"></textarea>
+      </div>
+      <div class="grid grid-2" style="gap: 12px">
+        <div class="field">
+          <label for="ward">Ward</label>
+          <select id="ward" name="ward">
+            {% for w in wards %}<option value="{{ w }}">{{ w }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="source">Source channel</label>
+          <select id="source" name="source">
+            {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <button class="btn" type="submit">🤖 Analyze with AI</button>
+      <p class="muted" style="font-size: 12px; margin-top: 12px">
+        Try: <em>"Sewage overflowing near the market area"</em> or <em>"Streetlight not working for the past three days"</em>
+      </p>
+    </form>
+  </div>
+
+  <div>
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+    <div class="card result-card">
+      <h2 class="card-title">AI analysis · complaint #{{ saved }}</h2>
+      <div class="result-grid">
+        <div class="result-tile">
+          <div class="k">Category</div>
+          <div class="v">{{ result.category }}</div>
+          <div class="conf-bar"><div class="conf-fill" style="width: {{ (result.confidence * 100) | round(1) }}%"></div></div>
+          <div class="muted" style="font-size: 11.5px; margin-top: 6px">confidence {{ (result.confidence * 100) | round(1) }}%</div>
+        </div>
+        <div class="result-tile">
+          <div class="k">Priority</div>
+          <div class="v"><span class="badge badge-{{ result.priority | lower }}" style="font-size: 13px">{{ result.priority }}</span></div>
+          <div class="muted" style="font-size: 11.5px; margin-top: 8px">urgency score {{ result.score }}</div>
+        </div>
+        <div class="result-tile">
+          <div class="k">Duplicates</div>
+          <div class="v">{% if result.is_duplicate %}⚠️ Found{% else %}✅ None{% endif %}</div>
+          <div class="muted" style="font-size: 11.5px; margin-top: 8px">
+            {% if result.is_duplicate %}Matches #{{ result.duplicate_of }} ({{ (result.duplicate_ratio * 100) | round(0) }}% similar){% else %}No similar complaint detected{% endif %}
+          </div>
+        </div>
+      </div>
+      <ul class="explanation">
+        {% for line in result.explanation %}<li>{{ line }}</li>{% endfor %}
+      </ul>
+      <div class="table-actions">
+        <a class="btn secondary small" href="{{ url_for('complaints', category=result.category) }}">View {{ result.category }} complaints →</a>
+      </div>
+    </div>
+    {% else %}
+    <div class="card" style="background: linear-gradient(160deg, #f7f9ff, #eef1fb); border-style: dashed;">
+      <h2 class="card-title">What happens next</h2>
+      <ol style="padding-left: 18px; font-size: 13.5px; color: #2b3245; line-height: 1.9">
+        <li><b>Preprocessing</b> — cleaning, tokenization, lemmatization, stop-word removal</li>
+        <li><b>Duplicate check</b> — compared against recent complaints</li>
+        <li><b>Classification</b> — {{ categories | length }} service categories (NLP model)</li>
+        <li><b>Prioritization</b> — urgency scoring → High / Medium / Low</li>
+        <li>Stored to the central database for the dashboard &amp; weekly digest</li>
+      </ol>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

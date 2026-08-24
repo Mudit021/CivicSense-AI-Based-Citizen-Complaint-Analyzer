@@ -1,0 +1,124 @@
+"""Text preprocessing pipeline (paper section 3.2).
+
+Stages implemented: text cleaning, tokenization, lemmatization,
+stop-word removal and duplicate detection. Every stage degrades gracefully
+(no hard dependency on NLTK data being present).
+"""
+import re
+from difflib import SequenceMatcher
+
+from .config import DUPLICATE_SIMILARITY
+from . import database
+
+# --- stop words (NLTK with a small built-in fallback) -----------------------
+# Domain-level noise words (locations/time/connectors) that add no signal
+# to trending-keyword analysis or digests.
+_DOMAIN_NOISE = {
+    # time / connectors / generic modifiers
+    "near", "area", "street", "day", "days", "week", "since", "yesterday",
+    "today", "tomorrow", "morning", "evening", "night", "please", "also",
+    "every", "many", "much", "one", "two", "first", "last", "get", "got",
+    "need", "needs", "want", "come", "going", "keep", "left", "back",
+    "around", "inside", "outside", "really", "very", "quite", "still",
+    "well", "time", "times", "whole", "long", "make", "made", "old",
+    "new", "completely", "half", "ha", "recent", "recently",
+    # generic location words (they are ward metadata, not complaint themes)
+    "school", "park", "market", "hospital", "temple", "bus", "stop",
+    "playground", "hall", "railway", "station", "lake", "view", "colony",
+    "fort", "church", "stadium", "pump", "petrol", "corner", "lane",
+    "block", "junction", "side", "behind", "front", "opposite", "overhead",
+    "open", "ground", "closed", "main",
+}
+
+try:
+    from nltk.corpus import stopwords as _nltk_stopwords
+    _STOPWORDS = set(_nltk_stopwords.words("english")) | _DOMAIN_NOISE
+except Exception:  # pragma: no cover - offline fallback
+    _STOPWORDS = {
+        "a", "an", "the", "and", "or", "but", "is", "are", "was", "were", "be",
+        "been", "being", "to", "of", "in", "on", "at", "for", "with", "from",
+        "by", "as", "it", "its", "this", "that", "these", "those", "i", "we",
+        "you", "he", "she", "they", "my", "our", "your", "his", "her", "their",
+        "has", "have", "had", "do", "does", "did", "not", "no", "so", "if",
+        "then", "than", "too", "very", "can", "will", "just", "about", "into",
+        "over", "after", "before", "between", "out", "up", "down", "off", "again",
+        "there", "here", "when", "where", "why", "how", "all", "any", "both",
+        "each", "few", "more", "most", "other", "some", "such", "only", "own",
+        "same", "what", "which", "who", "whom", "during", "because", "until",
+        "while", "also", "still", "since", "s", "t", "don", "now", "get", "got",
+        "one", "two", "last", "first", "every", "lot", "much", "many",
+    } | _DOMAIN_NOISE
+
+# --- lemmatizer (NLTK WordNet, with a regex POS guess to avoid the
+#     perceptron tagger download) -------------------------------------------
+try:
+    from nltk.stem import WordNetLemmatizer
+    _LEMMATIZER = WordNetLemmatizer()
+    _HAS_LEMMATIZER = True
+except Exception:  # pragma: no cover
+    _LEMMATIZER = None
+    _HAS_LEMMATIZER = False
+
+_TOKEN_RE = re.compile(r"[a-z][a-z']*")
+_URL_RE = re.compile(r"https?://\S+|www\.\S+")
+_EMAIL_RE = re.compile(r"\S+@\S+")
+_NOISE_RE = re.compile(r"[^a-z0-9\s]")
+_MULTI_SPACE_RE = re.compile(r"\s+")
+
+
+def clean_text(text: str) -> str:
+    """Lowercase and strip URLs, emails, symbols and repeated whitespace."""
+    t = (text or "").lower()
+    t = _URL_RE.sub(" ", t)
+    t = _EMAIL_RE.sub(" ", t)
+    t = _NOISE_RE.sub(" ", t)
+    t = _MULTI_SPACE_RE.sub(" ", t)
+    return t.strip()
+
+
+def tokenize(text: str) -> list:
+    """Simple, dependency-free word tokenizer."""
+    return _TOKEN_RE.findall(clean_text(text))
+
+
+def _guess_pos(word: str) -> str:
+    """Rough part-of-speech guess for lemmatization (n = noun, v = verb)."""
+    if word.endswith(("ing", "ed")):
+        return "v"
+    return "n"
+
+
+def lemmatize(tokens: list) -> list:
+    """Reduce words to base forms using WordNet lemmatization."""
+    if not _HAS_LEMMATIZER:
+        return tokens
+    return [_LEMMATIZER.lemmatize(t, _guess_pos(t)) for t in tokens]
+
+
+def remove_stopwords(tokens: list) -> list:
+    return [t for t in tokens if t not in _STOPWORDS and len(t) > 1]
+
+
+def normalize(text: str) -> str:
+    """Full preprocessing pipeline -> canonical space-joined string."""
+    return " ".join(remove_stopwords(lemmatize(tokenize(text))))
+
+
+def similarity(a: str, b: str) -> float:
+    return SequenceMatcher(None, normalize(a), normalize(b)).ratio()
+
+
+def find_duplicate(description: str):
+    """Return (id, ratio) of the most similar recent complaint, or None.
+
+    Mirrors the paper's 'duplicate removal' preprocessing stage: citizens
+    often re-file the same grievance from different channels.
+    """
+    best = None
+    for c in database.recent_complaints(limit=300):
+        if c["is_duplicate"]:
+            continue
+        r = similarity(description, c["description"])
+        if r >= DUPLICATE_SIMILARITY and (best is None or r > best[1]):
+            best = (c["id"], round(r, 3))
+    return best

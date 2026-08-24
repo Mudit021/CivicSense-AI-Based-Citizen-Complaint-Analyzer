@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Report #{{ report.id }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ report.title }}</h1>
+    <p class="page-sub">Period {{ report.period_start[:10] }} → {{ report.period_end[:10] }} · generated {{ report.created_at | pretty_date }}</p>
+  </div>
+  <div style="display:flex; gap:8px">
+    <a class="btn small" href="{{ url_for('report_pdf', rid=report.id) }}">⬇ PDF</a>
+    <a class="btn small secondary" href="{{ url_for('report_xlsx', rid=report.id) }}">⬇ Excel</a>
+    <a class="btn small secondary" href="{{ url_for('reports') }}">← All reports</a>
+  </div>
+</div>
+
+<div class="grid grid-3">
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon">📥</div>
+    <div><div class="kpi-value">{{ report.id }}</div><div class="kpi-label">Report ID</div></div>
+  </div></div>
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon green">🗓️</div>
+    <div><div class="kpi-value" style="font-size:18px">{{ report.period_start[:10] }}</div><div class="kpi-label">Period start</div></div>
+  </div></div>
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon red">⚡</div>
+    <div><div class="kpi-value" style="font-size:18px">{{ report.period_end[:10] }}</div><div class="kpi-label">Period end</div></div>
+  </div></div>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <h2 class="card-title">AI-Generated Digest</h2>
+  <div class="report-body">{{ report.summary }}</div>
+</div>
+
+{% endblock %}

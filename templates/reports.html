@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Weekly digests &amp; reports</h1>
+    <p class="page-sub">Generative-AI narratives compiled from thousands of complaints — exactly like the paper's Ward 5 example.</p>
+  </div>
+  <form method="post" action="{{ url_for('generate_report') }}">
+    <button class="btn green" type="submit">⚡ Generate weekly report</button>
+  </form>
+</div>
+
+{% if not reports %}
+<div class="card empty">No reports yet — click <b>Generate weekly report</b> to create your first AI digest.</div>
+{% endif %}
+
+<div class="grid">
+  {% for r in reports %}
+  <div class="card hoverable">
+    <div class="report-meta">
+      <span>🗓️ {{ r.period_start[:10] }} → {{ r.period_end[:10] }}</span>
+      <span>· generated {{ r.created_at | pretty_date }}</span>
+      <span>· {{ r.format }}</span>
+    </div>
+    <h3 style="margin: 0 0 10px">{{ r.title }}</h3>
+    <p class="report-body" style="font-size: 13.5px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">{{ r.summary }}</p>
+    <div class="table-actions">
+      <a class="btn small" href="{{ url_for('report_view', rid=r.id) }}">Read digest</a>
+      <a class="btn small secondary" href="{{ url_for('report_pdf', rid=r.id) }}">⬇ PDF</a>
+      <a class="btn small secondary" href="{{ url_for('report_xlsx', rid=r.id) }}">⬇ Excel</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

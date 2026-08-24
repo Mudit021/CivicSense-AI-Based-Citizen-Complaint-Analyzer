@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CivicSense{% endblock %} · CivicSense</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏙️</text></svg>">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">CS</div>
+      <div>
+        <div class="brand-name">CivicSense</div>
+        <div class="brand-sub">Complaint Analyzer</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="{{ url_for('index') }}" class="nav-item {{ 'active' if request.endpoint == 'index' }}">
+        <span class="nav-ico">📊</span> Dashboard
+      </a>
+      <a href="{{ url_for('complaints') }}" class="nav-item {{ 'active' if request.endpoint == 'complaints' }}">
+        <span class="nav-ico">📋</span> Complaints
+      </a>
+      <a href="{{ url_for('new_complaint') }}" class="nav-item {{ 'active' if request.endpoint == 'new_complaint' }}">
+        <span class="nav-ico">➕</span> New Complaint
+      </a>
+      <a href="{{ url_for('reports') }}" class="nav-item {{ 'active' if request.endpoint in ['reports', 'report_view'] }}">
+        <span class="nav-ico">📈</span> Reports
+      </a>
+      <a href="{{ url_for('pipeline') }}" class="nav-item {{ 'active' if request.endpoint == 'pipeline' }}">
+        <span class="nav-ico">⚙️</span> AI Pipeline
+      </a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="status-dot"></div>
+      AI pipeline online
+    </div>
+  </aside>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+</body>
+</html>

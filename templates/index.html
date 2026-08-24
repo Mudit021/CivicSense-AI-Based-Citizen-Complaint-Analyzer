@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+
+{% set ph = stats.by_priority.High %}
+{% set pm = stats.by_priority.Medium %}
+{% set pl = stats.by_priority.Low %}
+{% set ptotal = ph + pm + pl %}
+{% set php = (ph / ptotal * 100) if ptotal else 0 %}
+{% set pmp = (pm / ptotal * 100) if ptotal else 0 %}
+{% set plp = (pl / ptotal * 100) if ptotal else 0 %}
+{% set phc = (ph / ptotal * 360) if ptotal else 0 %}
+{% set pmc = (pm / ptotal * 360) if ptotal else 0 %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Civic Command Dashboard</h1>
+    <p class="page-sub">Real-time complaint intelligence for municipal officers · Model: {{ metrics.get('model', 'TF-IDF + LinearSVC') }} · Accuracy {{ (metrics.get('accuracy', 0) * 100) | round(1) }}%</p>
+  </div>
+  <form method="post" action="{{ url_for('generate_report') }}">
+    <button class="btn green" type="submit">⚡ Generate weekly report</button>
+  </form>
+</div>
+
+{% if seeded %}
+<div class="alert alert-info">Demo dataset seeded with <b>{{ seeded }}</b> sample complaints, processed through the live AI pipeline.</div>
+{% endif %}
+
+<!-- KPI row -->
+<div class="grid grid-4">
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon">📥</div>
+    <div><div class="kpi-value">{{ stats.total }}</div><div class="kpi-label">Total complaints</div></div>
+  </div></div>
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon red">🚨</div>
+    <div><div class="kpi-value">{{ stats.by_priority.High }}</div><div class="kpi-label">High priority</div></div>
+  </div></div>
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon green">✅</div>
+    <div><div class="kpi-value">{{ stats.by_status.get('Resolved', 0) }}</div><div class="kpi-label">Resolved</div></div>
+  </div></div>
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon amber">🔁</div>
+    <div><div class="kpi-value">{{ stats.duplicates }}</div><div class="kpi-label">Duplicates detected</div></div>
+  </div></div>
+</div>
+
+<!-- Digest hero -->
+{% if latest_digest %}
+<div class="digest" style="margin-top: 18px;">
+  <span class="chip">✦ AI-Generated Weekly Digest</span>
+  <h3>{{ reports[0].title }}</h3>
+  <p>{{ latest_digest }}</p>
+  <div class="meta">{{ reports[0].created_at | pretty_date }} · <a class="link" style="color:#9fb3ff" href="{{ url_for('report_view', rid=reports[0].id) }}">Read full digest →</a></div>
+</div>
+{% endif %}
+
+<!-- Charts row -->
+<div class="grid grid-3" style="margin-top: 18px;">
+  <div class="card">
+    <h2 class="card-title">Complaints by category</h2>
+    {% for c in categories %}
+    <div class="hbar-row">
+      <div class="hbar-name">{{ c }}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width: {{ (stats.by_category[c] / max_cat * 100) | round(1) }}%"></div></div>
+      <div class="hbar-val">{{ stats.by_category[c] }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Priority distribution</h2>
+    <div class="donut-wrap">
+      <div class="donut" style="background: conic-gradient(#e5484d 0 {{ phc }}deg, #f5a524 {{ phc }}deg {{ phc + pmc }}deg, #30a46c {{ phc + pmc }}deg 360deg);">
+        <div class="donut-inner"><div class="n">{{ ptotal }}</div><div class="l">total</div></div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-swatch" style="background:#e5484d"></span> High <span class="legend-n">{{ ph }} ({{ php | round(0) }}%)</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#f5a524"></span> Medium <span class="legend-n">{{ pm }} ({{ pmp | round(0) }}%)</span></div>
+        <div class="legend-item"><span class="legend-swatch" style="background:#30a46c"></span> Low <span class="legend-n">{{ pl }} ({{ plp | round(0) }}%)</span></div>
+      </div>
+    </div>
+    <p class="muted" style="font-size:12px; margin-top:14px">Priorities are assigned by the AI engine from urgency keywords, category risk, emotion, ward frequency and age.</p>
+  </div>
+
+  <div class="card">
+    <h2 class="card-title">Daily inflow · last {{ trend | length }} days</h2>
+    <div class="bars">
+      {% for day, count in trend %}
+      <div class="bar-col" title="{{ day }}: {{ count }}">
+        <div class="bar-val">{{ count }}</div>
+        <div class="bar" style="height: {{ (count / max_trend * 100) | round(1) }}%"></div>
+        <div class="bar-label">{{ day }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top: 18px;">
+  <h2 class="card-title">Trending keywords <span class="hint">· recurring themes across all complaints (7d)</span></h2>
+  <div class="tag-cloud">
+    {% for kw in keywords %}<span class="tag">{{ kw }}</span>{% endfor %}
+  </div>
+  <p class="muted" style="font-size: 12px; margin: 14px 0 0">
+    These are the most frequent content words in citizen complaints — the paper's
+    <em>trend identification</em>: recurring potholes, constant garbage delays and
+    other patterns that raw complaint lists hide.
+  </p>
+</div>
+
+<div class="grid grid-2" style="margin-top: 18px;">
+  <!-- Ward hotspots -->
+  <div class="card">
+    <h2 class="card-title">Ward hotspots <span class="hint">· complaints by ward (30d)</span></h2>
+    {% for w in wards[:8] %}
+    <div class="hbar-row">
+      <div class="hbar-name">{{ w.ward }}</div>
+      <div class="hbar-track"><div class="hbar-fill" style="width: {{ (w.total / max_ward * 100) | round(1) }}%; background: linear-gradient(90deg, #e5484d, #f5a524)"></div></div>
+      <div class="hbar-val">{{ w.total }} <span class="muted" style="font-weight:500; font-size:11px">· {{ w.top_category }}</span></div>
+    </div>
+    {% endfor %}
+    <div class="table-actions"><a class="btn secondary small" href="{{ url_for('complaints') }}">View all complaints →</a></div>
+  </div>
+
+  <!-- Recent complaints -->
+  <div class="card">
+    <h2 class="card-title">Latest complaints</h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Complaint</th><th>Ward</th><th>Priority</th><th>Time</th></tr></thead>
+        <tbody>
+          {% for c in recent %}
+          <tr>
+            <td class="title-cell">{{ c.title }}</td>
+            <td>{{ c.ward }}</td>
+            <td><span class="badge badge-{{ c.priority | lower }}">{{ c.priority }}</span></td>
+            <td class="muted">{{ c.created_at | pretty_date }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
