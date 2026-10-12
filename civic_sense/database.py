@@ -2,6 +2,12 @@
 
 Complaints table mirrors the paper's "central database (PostgreSQL or MongoDB)"
 concept; SQLite keeps the demo self-contained and portable.
+
+Schema note: the complaints table carries both duplicate-detection fields
+(is_duplicate, duplicate_of) and fraud-detection fields (fraud_score,
+fraud_level, fraud_explanation), plus optional incident-cluster and XAI fields.
+That is intentional — duplicate detection and fraud detection are separate
+stages and both persist their results here.
 """
 import sqlite3
 from collections import Counter
@@ -12,19 +18,26 @@ from .config import DB_PATH, CATEGORIES, PRIORITIES
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS complaints (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    source        TEXT    NOT NULL DEFAULT 'Web Portal',
-    ward          TEXT    NOT NULL,
-    category      TEXT    NOT NULL,
-    title         TEXT    NOT NULL,
-    description   TEXT    NOT NULL,
-    priority      TEXT    NOT NULL DEFAULT 'Medium',
-    status        TEXT    NOT NULL DEFAULT 'Open',
-    confidence    REAL,
-    is_duplicate  INTEGER NOT NULL DEFAULT 0,
-    duplicate_of  INTEGER,
-    created_at    TEXT    NOT NULL,
-    processed_at  TEXT
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    source              TEXT    NOT NULL DEFAULT 'Web Portal',
+    ward                TEXT    NOT NULL,
+    category            TEXT    NOT NULL,
+    title               TEXT    NOT NULL,
+    description         TEXT    NOT NULL,
+    priority            TEXT    NOT NULL DEFAULT 'Medium',
+    status              TEXT    NOT NULL DEFAULT 'Open',
+    confidence          REAL,
+    is_duplicate        INTEGER NOT NULL DEFAULT 0,
+    duplicate_of        INTEGER,
+    created_at          TEXT    NOT NULL,
+    processed_at        TEXT,
+    priority_score      REAL,
+    priority_breakdown  TEXT,
+    fraud_score         REAL,
+    fraud_level         TEXT,
+    fraud_explanation   TEXT,
+    cluster_id          INTEGER,
+    xai_explanation      TEXT
 );
 
 CREATE TABLE IF NOT EXISTS reports (
@@ -59,22 +72,40 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        # Migrate: add new columns to existing databases
+        for col, typ in [("priority_score", "REAL"), ("priority_breakdown", "TEXT")]:
+            try:
+                conn.execute(f"ALTER TABLE complaints ADD COLUMN {col} {typ}")
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
 
 # ---------------------------------------------------------------------------
 # Complaints
 # ---------------------------------------------------------------------------
 def insert_complaint(c: dict) -> int:
+    import json as _json
     with get_conn() as conn:
+        breakdown = c.get("priority_breakdown")
+        fraud_exp = c.get("fraud_explanation")
+        xai_exp = c.get("xai_explanation")
         cur = conn.execute(
             """INSERT INTO complaints
                  (source, ward, category, title, description, priority, status,
-                  confidence, is_duplicate, duplicate_of, created_at, processed_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                  confidence, is_duplicate, duplicate_of, created_at, processed_at,
+                  priority_score, priority_breakdown, fraud_score, fraud_level,
+                  fraud_explanation, cluster_id, xai_explanation)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (c["source"], c["ward"], c["category"], c["title"], c["description"],
              c["priority"], c.get("status", "Open"), c.get("confidence"),
              int(c.get("is_duplicate", 0)), c.get("duplicate_of"),
-             c["created_at"], datetime.now().isoformat(timespec="seconds")),
+             c["created_at"], datetime.now().isoformat(timespec="seconds"),
+             c.get("priority_score"),
+             _json.dumps(breakdown) if breakdown else None,
+             c.get("fraud_score"), c.get("fraud_level"),
+             _json.dumps(fraud_exp) if fraud_exp else None,
+             c.get("cluster_id"),
+             _json.dumps(xai_exp) if xai_exp else None),
         )
         return cur.lastrowid
 
@@ -86,9 +117,12 @@ def get_complaint(cid: int):
 
 
 def get_complaints(category=None, priority=None, ward=None, status=None, q=None,
-                   limit=300, offset=0):
+                   cid=None, dup=None, limit=300, offset=0):
     sql = "SELECT * FROM complaints WHERE 1=1"
     args = []
+    if cid is not None:
+        sql += " AND id = ?"
+        args.append(cid)
     if category:
         sql += " AND category = ?"
         args.append(category)
@@ -101,6 +135,9 @@ def get_complaints(category=None, priority=None, ward=None, status=None, q=None,
     if status:
         sql += " AND status = ?"
         args.append(status)
+    if dup is not None:
+        sql += " AND is_duplicate = ?"
+        args.append(int(dup))
     if q:
         sql += " AND (title LIKE ? OR description LIKE ?)"
         args += [f"%{q}%", f"%{q}%"]
@@ -232,6 +269,65 @@ def get_report(rid: int):
 def update_status(cid: int, status: str) -> None:
     with get_conn() as conn:
         conn.execute("UPDATE complaints SET status = ? WHERE id = ?", (status, cid))
+
+
+def related_complaints(ward: str, category: str, exclude_id: int, limit: int = 5) -> list:
+    """Fetch nearby complaints in the same locality + category."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, title, priority, status, created_at FROM complaints "
+            "WHERE ward = ? AND category = ? AND id != ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (ward, category, exclude_id, limit)).fetchall()
+        return [dict(r) for r in rows]
+
+
+def fraud_alerts(limit: int = 5, include_medium: bool = True) -> list:
+    """Highest-risk fraud alerts for the dashboard card.
+
+    The Fraud Alerts card must not depend on whether a flagged row happens to
+    fall inside the "recent complaints" window, so this queries the whole table
+    ordered by fraud score. High-risk rows always sort first; Medium rows are
+    included as a fallback so the card is never empty while a signal exists.
+    """
+    levels = ("High", "Medium") if include_medium else ("High",)
+    placeholders = ",".join("?" for _ in levels)
+    with get_conn() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM complaints WHERE fraud_level IN ({placeholders}) "
+            "ORDER BY CASE fraud_level WHEN 'High' THEN 0 ELSE 1 END, "
+            "fraud_score DESC, created_at DESC LIMIT ?",
+            (*levels, limit)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def cluster_summary(limit: int = 5) -> list:
+    """Group complaints by incident cluster for the Incident Hotspots card.
+
+    Returns one row per cluster with its size and a representative title, so the
+    card shows the clusters that actually exist rather than only those visible
+    in the last few complaints.
+    """
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT cluster_id, COUNT(*) AS n, MAX(created_at) AS last_seen, "
+            "       MIN(id) AS sample_id "
+            "FROM complaints WHERE cluster_id IS NOT NULL "
+            "GROUP BY cluster_id ORDER BY n DESC, last_seen DESC LIMIT ?",
+            (limit,)).fetchall()
+        out = []
+        for r in rows:
+            sample = conn.execute(
+                "SELECT title, ward, category FROM complaints WHERE id = ?",
+                (r["sample_id"],)).fetchone()
+            out.append({
+                "cluster_id": r["cluster_id"],
+                "count": r["n"],
+                "title": (dict(sample) if sample else {}).get("title"),
+                "ward": (dict(sample) if sample else {}).get("ward"),
+                "category": (dict(sample) if sample else {}).get("category"),
+            })
+    return out
 
 
 def complaints_in_period(start: str, end: str) -> list:

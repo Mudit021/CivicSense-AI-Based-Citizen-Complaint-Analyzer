@@ -1,7 +1,35 @@
 """Central configuration for CivicSense.
 
-All tunable knobs (paths, categories, thresholds, optional GenAI hooks) live here
-so the rest of the codebase stays clean and the demo is easy to configure.
+All tunable knobs live here — paths, domain constants, optional GenAI hooks and
+pipeline thresholds — so the rest of the codebase stays clean and the demo is
+easy to configure.
+
+Domain constants
+----------------
+CATEGORIES, WARDS, SOURCES, STATUSES come from the base paper. PRIORITIES are
+the three tiers used by the prioritizer (High / Medium / Low).
+
+Optional AI hooks
+-----------------
+- OPENAI_API_KEY / OPENAI_MODEL: switch the weekly digest from the offline
+  template engine to a generative LLM.
+- USE_TRANSFORMERS / TRANSFORMER_MODEL: switch classification from TF-IDF +
+  LinearSVC to zero-shot DistilBERT (requires a compatible torch + transformers
+  stack).
+
+Pipeline tuning
+---------------
+- DUPLICATE_SIMILARITY: normalized-text similarity ratio at which a new complaint
+  is considered a duplicate of a recent one (scope: same ward + same category).
+- REPORT_WINDOW_DAYS: weekly digest window.
+- TREND_DAYS: dashboard trend window.
+
+Fraud / scenario knobs
+---------------------
+- Fraud scoring lives in `civic_sense/fraud_detector.py` (`FREQ_THRESHOLD`,
+  `SIM_THRESHOLD`) and is intentionally separate from duplicate detection.
+- The demo seed scenarios live in `civic_sense/seed_data.py` (fraud-alert burst,
+  incident-hotspot cluster) and are labelled internally with a `scenario` field.
 """
 import os
 from pathlib import Path
@@ -25,7 +53,8 @@ for _p in (DATA_DIR, MODELS_DIR, REPORTS_DIR):
 # ---------------------------------------------------------------------------
 CATEGORIES = ["Roads", "Electricity", "Water Supply", "Waste Management", "Public Safety"]
 PRIORITIES = ["High", "Medium", "Low"]
-WARDS = [f"Ward {i}" for i in range(1, 11)]
+WARDS = ["PCMC", "Chinchwad", "Vadgaon", "Maval", "Talegaon",
+         "Akurdi", "Wakad", "Hinjewadi", "Katraj", "Kamseth"]
 SOURCES = ["Mobile App", "Web Portal", "Email", "Call Center", "Social Media"]
 STATUSES = ["Open", "In Progress", "Resolved"]
 
@@ -45,6 +74,15 @@ TRANSFORMER_MODEL = os.environ.get("TRANSFORMER_MODEL", "distilbert-base-uncased
 # ---------------------------------------------------------------------------
 # Pipeline tuning
 # ---------------------------------------------------------------------------
-DUPLICATE_SIMILARITY = 0.92      # normalized-text similarity ratio for dedup
-REPORT_WINDOW_DAYS = 7           # weekly digest window
-TREND_DAYS = 14                  # dashboard trend window
+# Duplicate threshold. When sentence-transformers is available, similarity is
+# cosine distance over all-MiniLM-L6-v2 embeddings; otherwise the difflib
+# SequenceMatcher fallback is used. The default 0.92 keeps near-paraphrase
+# duplicates under the same umbrella while still allowing genuinely distinct
+# reports through.
+DUPLICATE_SIMILARITY = 0.92
+
+# Weekly digest window (the paper's "weekly" cadence).
+REPORT_WINDOW_DAYS = 7
+
+# Dashboard trend window.
+TREND_DAYS = 14

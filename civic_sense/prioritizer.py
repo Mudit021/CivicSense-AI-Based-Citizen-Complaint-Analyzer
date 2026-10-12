@@ -5,7 +5,9 @@ paper: severity of the words used, number of similar complaints in the same
 location, emotive language, and the age of the complaint. Each complaint is
 labelled High / Medium / Low priority.
 """
+import json
 from datetime import datetime
+from typing import Tuple, Dict, List
 
 # Words that indicate an immediate safety / health hazard.
 HIGH_KEYWORDS = {
@@ -67,7 +69,7 @@ def _emotion_score(text: str) -> float:
 
 
 def _frequency_score(similar_count: int) -> float:
-    """Many similar complaints in the same ward => escalating urgency."""
+    """Many similar complaints in the same locality => escalating urgency."""
     return min(similar_count * 0.6, 2.4)
 
 
@@ -80,15 +82,36 @@ def _age_score(created_at: str) -> float:
     return min(days * 0.25, 1.0)
 
 
+def _cluster_boost(cluster_size: int) -> float:
+    """Systemic issue boost: if many people report the same incident,
+    the priority increases.
+    """
+    # Boost up to 2.0 based on cluster size
+    return min(cluster_size * 0.5, 2.0)
+
+
 def assign_priority(text: str, category: str, ward: str, created_at: str,
-                    similar_count: int = 0):
-    """Compute priority + a human-readable breakdown for transparency."""
+                    similar_count: int = 0, cluster_size: int = 1) -> Tuple[str, float, Dict[str, float]]:
+    """Compute priority + a human-readable breakdown for transparency.
+
+    Signals:
+      - keywords: urgent / hazard wording in the complaint text
+      - category_risk: base urgency associated with the predicted category
+      - emotion: frustrated / emphatic citizen language
+      - frequency: how many similar complaints in the same locality recently
+      - age: how long the issue has already been pending
+      - cluster_boost: extra weight when the complaint is part of a systemic
+        incident cluster (multiple citizens reporting the same underlying issue)
+
+    Returns: (priority, total_score, breakdown)
+    """
     breakdown = {
         "keywords": round(_keyword_score(text), 2),
-        "category": CATEGORY_BASE.get(category, 0.0),
+        "category_risk": round(CATEGORY_BASE.get(category, 0.0), 2),
         "emotion": round(_emotion_score(text), 2),
         "frequency": round(_frequency_score(similar_count), 2),
         "age": round(_age_score(created_at), 2),
+        "cluster_boost": round(_cluster_boost(cluster_size), 2),
     }
     total = round(sum(breakdown.values()), 2)
     if total >= THRESHOLD_HIGH:
@@ -100,26 +123,37 @@ def assign_priority(text: str, category: str, ward: str, created_at: str,
     return priority, total, breakdown
 
 
-def priority_explanation(breakdown: dict, total: float) -> list:
-    """Turn the score breakdown into sentences shown on the UI."""
+def priority_explanation(breakdown: Dict[str, float], total: float) -> List[str]:
+    """Turn the score breakdown into sentences shown on the UI (XAI)."""
     lines = []
-    if breakdown["keywords"] >= 2.4:
+    if breakdown.get("keywords", 0) >= 2.4:
         lines.append("Contains strongly urgent wording (e.g. safety or hazard terms).")
-    elif breakdown["keywords"] > 0:
+    elif breakdown.get("keywords", 0) > 0:
         lines.append("Contains issue-specific wording that indicates a problem.")
-    if breakdown["category"] >= 1.6:
+
+    if breakdown.get("category_risk", 0) >= 1.6:
         lines.append("Category carries inherent safety risk (Public Safety).")
-    elif breakdown["category"] >= 1.0:
+    elif breakdown.get("category_risk", 0) >= 1.0:
         lines.append("Category involves electrical hazard risk.")
-    if breakdown["emotion"] > 0:
+
+    if breakdown.get("emotion", 0) > 0:
         lines.append("Complaint expresses strong dissatisfaction or urgency.")
-    if breakdown["frequency"] >= 1.8:
-        lines.append("Many similar complaints reported in this ward recently.")
-    elif breakdown["frequency"] > 0:
-        lines.append("Similar complaints exist in this ward.")
-    if breakdown["age"] > 0.5:
+
+    if breakdown.get("frequency", 0) >= 1.8:
+        lines.append("Many similar complaints reported in this locality recently.")
+    elif breakdown.get("frequency", 0) > 0:
+        lines.append("Similar complaints exist in this locality.")
+
+    if breakdown.get("cluster_boost", 0) >= 1.0:
+        lines.append("Identified as part of a significant systemic incident cluster.")
+    elif breakdown.get("cluster_boost", 0) > 0:
+        lines.append("Multiple citizens are reporting the same underlying incident.")
+
+    if breakdown.get("age", 0) > 0.5:
         lines.append("Issue has been pending for several days.")
+
     if not lines:
         lines.append("No strong urgency signals detected.")
-    lines.append(f"Total urgency score: {total} (High ≥ 3.2, Medium ≥ 1.6).")
+
+    lines.append(f"Total urgency score: {total} (High ≥ 3.2, Medium ≥ 1.6, Low < 1.6).")
     return lines

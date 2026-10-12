@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Runtime / generated artifacts
+app.out
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/reports/
+models/*.joblib
+models/metrics.json
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+~$*.docx
+*.swp
+.idea/
+.vscode/

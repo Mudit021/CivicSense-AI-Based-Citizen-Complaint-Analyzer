@@ -1,5 +1,11 @@
-"""PDF & Excel export of weekly civic reports (paper: "automatic generation
-in such formats as PDF or Excel")."""
+"""PDF & Excel export of weekly civic reports (paper: automatic generation
+in such formats as PDF or Excel).
+
+The PDF is the human-readable weekly narrative; the Excel workbook is separate
+so officers can filter, pivot and share the raw complaint rows. The report row
+stored in the database only persists the digest text and period; stats are
+re-derived deterministically from complaints in that window.
+"""
 from datetime import datetime
 from pathlib import Path
 
@@ -74,7 +80,12 @@ def generate_pdf(report: dict) -> Path:
 
 
 def generate_excel(report: dict) -> Path:
-    """Render an Excel workbook (Overview / Complaints / Breakdown) and return its path."""
+    """Render an Excel workbook (Overview / Complaints / Breakdown) and return its path.
+
+    Excel export is separate from the PDF digest so officers can filter, pivot
+    and share the raw complaint rows while the PDF remains the human-readable
+    weekly narrative.
+    """
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out = REPORTS_DIR / f"civic_report_{stamp}.xlsx"
 

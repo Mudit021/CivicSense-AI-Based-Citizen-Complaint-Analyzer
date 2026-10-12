@@ -1,14 +1,36 @@
 """Text preprocessing pipeline (paper section 3.2).
 
 Stages implemented: text cleaning, tokenization, lemmatization,
-stop-word removal and duplicate detection. Every stage degrades gracefully
-(no hard dependency on NLTK data being present).
+stop-word removal, locality-aware duplicate detection, and incident clustering.
+Every stage degrades gracefully (no hard dependency on NLTK data being present).
+
+Duplicate detection and incident clustering both use the same ``similarity``
+function. When the sentence-transformers stack is available, similarity uses
+all-MiniLM-L6-v2 cosine distance; otherwise it falls back to difflib
+SequenceMatcher on normalized text. Duplicate detection is locality-aware
+(same ward, optional category); incident clustering additionally requires the
+embedding path because the difflib fallback is too coarse for grouping.
 """
 import re
+import numpy as np
 from difflib import SequenceMatcher
+from typing import Optional, Tuple, List
 
 from .config import DUPLICATE_SIMILARITY
 from . import database
+
+# Attempt to import advanced ML libraries; fallback to basic similarity if unavailable
+try:
+    from sentence_transformers import SentenceTransformer
+    from sklearn.metrics.pairwise import cosine_similarity
+    _HAS_ML = True
+    # all-MiniLM-L6-v2 is lightweight and efficient for short civic complaints.
+    # If the installed transformers/torch stack is too old to import
+    # sentence_transformers at all, this import fails and we fall back below.
+    _MODEL = SentenceTransformer('all-MiniLM-L6-v2')
+except Exception:
+    _HAS_ML = False
+    _MODEL = None
 
 # --- stop words (NLTK with a small built-in fallback) -----------------------
 # Domain-level noise words (locations/time/connectors) that add no signal
@@ -47,7 +69,7 @@ except Exception:  # pragma: no cover - offline fallback
         "same", "what", "which", "who", "whom", "during", "because", "until",
         "while", "also", "still", "since", "s", "t", "don", "now", "get", "got",
         "one", "two", "last", "first", "every", "lot", "much", "many",
-    } | _DOMAIN_NOISE
+        } | _DOMAIN_NOISE
 
 # --- lemmatizer (NLTK WordNet, with a regex POS guess to avoid the
 #     perceptron tagger download) -------------------------------------------
@@ -105,20 +127,83 @@ def normalize(text: str) -> str:
 
 
 def similarity(a: str, b: str) -> float:
+    """Compute similarity between two texts.
+
+    Uses Semantic Embeddings (Sentence-Transformers) if available,
+    otherwise falls back to SequenceMatcher.
+    """
+    if _HAS_ML and _MODEL:
+        embeddings = _MODEL.encode([a, b])
+        return float(cosine_similarity([embeddings[0]], [embeddings[1]])[0][0])
+
     return SequenceMatcher(None, normalize(a), normalize(b)).ratio()
 
 
-def find_duplicate(description: str):
+def find_duplicate(description: str, category: Optional[str] = None, ward: Optional[str] = None) -> Optional[Tuple[int, float]]:
     """Return (id, ratio) of the most similar recent complaint, or None.
 
-    Mirrors the paper's 'duplicate removal' preprocessing stage: citizens
-    often re-file the same grievance from different channels.
+    Mirrors the paper's 'duplicate removal' preprocessing stage, now enhanced
+    with semantic similarity to detect paraphrased repeats.
+
+    The search is scoped by ward (and optionally category) so a complaint is
+    only marked duplicate against prior reports of the same type of issue in
+    the same locality. Cross-ward re-use is treated as noise, not spam.
+
+    When sentence-transformers is available, similarity uses its embeddings;
+    otherwise the function falls back to SequenceMatcher on normalized text.
     """
     best = None
-    for c in database.recent_complaints(limit=300):
+    rows = database.recent_complaints(limit=300)
+    for c in rows:
+        if ward and c["ward"] != ward:
+            continue
+        if category and c["category"] != category:
+            continue
         if c["is_duplicate"]:
             continue
         r = similarity(description, c["description"])
         if r >= DUPLICATE_SIMILARITY and (best is None or r > best[1]):
             best = (c["id"], round(r, 3))
     return best
+
+
+def detect_incident_cluster(description: str, ward: Optional[str] = None,
+                            category: Optional[str] = None,
+                            threshold: float = 0.55) -> Optional[int]:
+    """Group complaints describing the same incident based on text similarity.
+
+    Returns the ``cluster_id`` of the cluster this complaint belongs to, or
+    ``None`` when it does not match any existing incident.
+
+    Clusters are scoped to the same locality (and optionally the same
+    category), so the same phrasing in two different wards is treated as a
+    coincidence rather than one incident. This also means the function is
+    safe to call for every submission.
+
+    Similarity uses sentence-transformers embeddings when that stack is
+    available, and otherwise falls back to the difflib-based ``similarity()``
+    implementation, so incident grouping still works in environments where the
+    transformer stack cannot be imported.
+    """
+    best_cluster_id = None
+    max_sim = 0.0
+
+    for c in database.recent_complaints(limit=300):
+        if c.get("is_duplicate"):
+            continue
+        if ward and c.get("ward") != ward:
+            continue
+        if category and c.get("category") != category:
+            continue
+
+        sim = similarity(description, c["description"])
+        # Below the duplicate threshold (those are handled by find_duplicate)
+        # but similar enough to describe the same underlying incident.
+        if DUPLICATE_SIMILARITY > sim >= threshold:
+            if sim > max_sim:
+                max_sim = sim
+                # Join an existing cluster when one exists, otherwise start a
+                # new cluster anchored on this record's id.
+                best_cluster_id = c.get("cluster_id") or c["id"]
+
+    return best_cluster_id

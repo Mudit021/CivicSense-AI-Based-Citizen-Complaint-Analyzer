@@ -28,23 +28,67 @@
 
 <!-- KPI row -->
 <div class="grid grid-4">
-  <div class="card hoverable"><div class="kpi">
+  <a href="{{ url_for('complaints') }}" class="card hoverable" style="text-decoration:none; color:inherit;"><div class="kpi">
     <div class="kpi-icon">📥</div>
     <div><div class="kpi-value">{{ stats.total }}</div><div class="kpi-label">Total complaints</div></div>
-  </div></div>
-  <div class="card hoverable"><div class="kpi">
+  </div></a>
+  <a href="{{ url_for('complaints', priority='High') }}" class="card hoverable" style="text-decoration:none; color:inherit;"><div class="kpi">
     <div class="kpi-icon red">🚨</div>
     <div><div class="kpi-value">{{ stats.by_priority.High }}</div><div class="kpi-label">High priority</div></div>
-  </div></div>
-  <div class="card hoverable"><div class="kpi">
+  </div></a>
+  <a href="{{ url_for('complaints', status='Resolved') }}" class="card hoverable" style="text-decoration:none; color:inherit;"><div class="kpi">
     <div class="kpi-icon green">✅</div>
     <div><div class="kpi-value">{{ stats.by_status.get('Resolved', 0) }}</div><div class="kpi-label">Resolved</div></div>
-  </div></div>
-  <div class="card hoverable"><div class="kpi">
+  </div></a>
+  <a href="{{ url_for('complaints', dup='1') }}" class="card hoverable" style="text-decoration:none; color:inherit;"><div class="kpi">
     <div class="kpi-icon amber">🔁</div>
     <div><div class="kpi-value">{{ stats.duplicates }}</div><div class="kpi-label">Duplicates detected</div></div>
-  </div></div>
+  </div></a>
 </div>
+
+<!-- AI Insights row -->
+<div class="grid grid-2" style="margin-top: 18px;">
+  <div class="card">
+    <h2 class="card-title">Fraud Alerts <span class="hint">· potential bad-faith filings</span></h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>ID</th><th>Title</th><th>Risk</th><th>Score</th></tr></thead>
+        <tbody>
+          {% for fc in fraud_alerts %}
+          <tr>
+            <td class="muted"><a class="link" href="{{ url_for('complaint_detail', cid=fc.id) }}">#{{ fc.id }}</a></td>
+            <td>{{ fc.title }}</td>
+            <td><span class="badge badge-{{ 'red' if fc.fraud_level == 'High' else 'amber' }}">{{ fc.fraud_level }}</span></td>
+            <td class="mono">{{ fc.fraud_score }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted" style="text-align:center">No elevated fraud risk detected</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h2 class="card-title">Incident Hotspots <span class="hint">· semantic clusters</span></h2>
+    <div class="table-wrap">
+      <table class="data">
+        <thead><tr><th>Cluster ID</th><th>Representative Theme</th><th>Size</th></tr></thead>
+        <tbody>
+          {% for cl in hotspots %}
+          <tr>
+            <td class="mono">#{{ cl.cluster_id }}</td>
+            <td>{{ cl.title }} <span class="muted">· {{ cl.ward }}</span></td>
+            <td><span class="badge badge-cat">{{ cl.count }} complaints</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" class="muted" style="text-align:center">No active incident clusters</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 
 <!-- Digest hero -->
 {% if latest_digest %}
@@ -52,7 +96,7 @@
   <span class="chip">✦ AI-Generated Weekly Digest</span>
   <h3>{{ reports[0].title }}</h3>
   <p>{{ latest_digest }}</p>
-  <div class="meta">{{ reports[0].created_at | pretty_date }} · <a class="link" style="color:#9fb3ff" href="{{ url_for('report_view', rid=reports[0].id) }}">Read full digest →</a></div>
+  <div class="meta">{{ reports[0].created_at | pretty_date }} · <a class="link" style="color:#ffd014" href="{{ url_for('report_view', rid=reports[0].id) }}">Read full digest →</a></div>
 </div>
 {% endif %}
 
@@ -61,11 +105,11 @@
   <div class="card">
     <h2 class="card-title">Complaints by category</h2>
     {% for c in categories %}
-    <div class="hbar-row">
+    <a href="{{ url_for('complaints', category=c) }}" class="hbar-row" style="text-decoration:none; color:inherit;">
       <div class="hbar-name">{{ c }}</div>
       <div class="hbar-track"><div class="hbar-fill" style="width: {{ (stats.by_category[c] / max_cat * 100) | round(1) }}%"></div></div>
       <div class="hbar-val">{{ stats.by_category[c] }}</div>
-    </div>
+    </a>
     {% endfor %}
   </div>
 
@@ -76,12 +120,12 @@
         <div class="donut-inner"><div class="n">{{ ptotal }}</div><div class="l">total</div></div>
       </div>
       <div class="legend">
-        <div class="legend-item"><span class="legend-swatch" style="background:#e5484d"></span> High <span class="legend-n">{{ ph }} ({{ php | round(0) }}%)</span></div>
-        <div class="legend-item"><span class="legend-swatch" style="background:#f5a524"></span> Medium <span class="legend-n">{{ pm }} ({{ pmp | round(0) }}%)</span></div>
-        <div class="legend-item"><span class="legend-swatch" style="background:#30a46c"></span> Low <span class="legend-n">{{ pl }} ({{ plp | round(0) }}%)</span></div>
+        <a href="{{ url_for('complaints', priority='High') }}" class="legend-item" style="text-decoration:none; color:inherit;"><span class="legend-swatch" style="background:#e5484d"></span> High <span class="legend-n">{{ ph }} ({{ php | round(0) }}%)</span></a>
+        <a href="{{ url_for('complaints', priority='Medium') }}" class="legend-item" style="text-decoration:none; color:inherit;"><span class="legend-swatch" style="background:#f5a524"></span> Medium <span class="legend-n">{{ pm }} ({{ pmp | round(0) }}%)</span></a>
+        <a href="{{ url_for('complaints', priority='Low') }}" class="legend-item" style="text-decoration:none; color:inherit;"><span class="legend-swatch" style="background:#30a46c"></span> Low <span class="legend-n">{{ pl }} ({{ plp | round(0) }}%)</span></a>
       </div>
     </div>
-    <p class="muted" style="font-size:12px; margin-top:14px">Priorities are assigned by the AI engine from urgency keywords, category risk, emotion, ward frequency and age.</p>
+    <p class="muted" style="font-size:12px; margin-top:14px">Priorities are assigned by the AI engine from urgency keywords, category risk, emotion, locality frequency and age.</p>
   </div>
 
   <div class="card">
@@ -108,18 +152,25 @@
     <em>trend identification</em>: recurring potholes, constant garbage delays and
     other patterns that raw complaint lists hide.
   </p>
+
+  <div class="note note-inline">
+    <strong>Fraud ≠ Duplicate.</strong> Duplicate detection avoids over-counting
+    repeated legitimate reports of the same incident; fraud detection flags
+    bad-faith or manipulated filings (floods, spam, trivial text). Both are shown
+    on the dashboard and on the complaint detail page, with separate XAI text.
+  </div>
 </div>
 
 <div class="grid grid-2" style="margin-top: 18px;">
-  <!-- Ward hotspots -->
+  <!-- Locality hotspots -->
   <div class="card">
-    <h2 class="card-title">Ward hotspots <span class="hint">· complaints by ward (30d)</span></h2>
+    <h2 class="card-title">Locality hotspots <span class="hint">· complaints by locality (30d)</span></h2>
     {% for w in wards[:8] %}
-    <div class="hbar-row">
+    <a href="{{ url_for('complaints', ward=w.ward) }}" class="hbar-row" style="text-decoration:none; color:inherit;">
       <div class="hbar-name">{{ w.ward }}</div>
       <div class="hbar-track"><div class="hbar-fill" style="width: {{ (w.total / max_ward * 100) | round(1) }}%; background: linear-gradient(90deg, #e5484d, #f5a524)"></div></div>
       <div class="hbar-val">{{ w.total }} <span class="muted" style="font-weight:500; font-size:11px">· {{ w.top_category }}</span></div>
-    </div>
+    </a>
     {% endfor %}
     <div class="table-actions"><a class="btn secondary small" href="{{ url_for('complaints') }}">View all complaints →</a></div>
   </div>
@@ -129,11 +180,12 @@
     <h2 class="card-title">Latest complaints</h2>
     <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Complaint</th><th>Ward</th><th>Priority</th><th>Time</th></tr></thead>
+        <thead><tr><th>ID</th><th>Complaint</th><th>Locality</th><th>Priority</th><th>Time</th></tr></thead>
         <tbody>
           {% for c in recent %}
           <tr>
-            <td class="title-cell">{{ c.title }}</td>
+            <td class="muted"><a class="link" href="{{ url_for('complaint_detail', cid=c.id) }}">#{{ c.id }}</a></td>
+            <td class="title-cell"><a class="link" href="{{ url_for('complaint_detail', cid=c.id) }}" style="color: var(--ink); text-decoration: none;">{{ c.title }}</a></td>
             <td>{{ c.ward }}</td>
             <td><span class="badge badge-{{ c.priority | lower }}">{{ c.priority }}</span></td>
             <td class="muted">{{ c.created_at | pretty_date }}</td>

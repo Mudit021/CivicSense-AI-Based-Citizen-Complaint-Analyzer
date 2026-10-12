@@ -5,3 +5,11 @@ pandas>=2.0
 nltk>=3.8
 reportlab>=4.0
 openpyxl>=3.1
+
+# Heavy ML backends are optional. The project degrades gracefully when they
+# are absent or incompatible (e.g. an older PyTorch release) — in that case
+# sentence similarity falls back to difflib and classification stays with the
+# lightweight sklearn TF-IDF + LinearSVC pipeline.
+# transformers>=4.0
+# sentence-transformers>=2.2
+# torch>=2.5  # current sentence-transformers/torch stack dependency

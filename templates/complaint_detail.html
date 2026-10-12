@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Complaint #{{ c.id }}{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 class="page-title">Complaint #{{ c.id }}</h1>
+    <p class="page-sub">Filed {{ c.created_at | pretty_date }} · via {{ c.source }}</p>
+  </div>
+  <a class="btn secondary" href="{{ url_for('complaints') }}">← Back to list</a>
+</div>
+
+<div class="grid grid-2">
+  <!-- Main details -->
+  <div>
+    <div class="card" style="margin-bottom: 18px;">
+      <h2 class="card-title">Details</h2>
+      <h3 style="margin: 0 0 12px; font-size: 17px; color: var(--ink);">{{ c.title }}</h3>
+      <p style="margin: 0 0 16px; font-size: 14px; color: var(--ink); line-height: 1.7;">{{ c.description }}</p>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px;">
+        <span class="badge badge-{{ c.priority | lower }}">{{ c.priority }} Priority</span>
+        <span class="badge badge-cat">{{ c.category }}</span>
+        <span class="badge badge-{{ c.status | lower | replace(' ', '-') }}">{{ c.status }}</span>
+        {% if c.is_duplicate %}
+        <span class="badge badge-dup">Duplicate of #{{ c.duplicate_of }}</span>
+        {% endif %}
+      </div>
+
+      <!-- Update status -->
+      <form method="post" action="{{ url_for('update_status', cid=c.id) }}" style="margin-top: 14px;">
+        <div class="field" style="margin-bottom: 0;">
+          <label for="status">Update status</label>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <select id="status" name="status" style="min-width: 160px;">
+              {% for s in statuses %}
+              <option value="{{ s }}" {{ 'selected' if c.status == s }}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn small" type="submit">Save</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Duplicate chain -->
+    {% if duplicate_of %}
+    <div class="card" style="margin-bottom: 18px; border-left: 4px solid #7048e8;">
+      <h2 class="card-title" style="color: #7048e8;">⚠️ Duplicate detected</h2>
+      <p style="margin: 0 0 10px; font-size: 13.5px;">
+        This complaint was flagged as a duplicate of <a class="link" href="{{ url_for('complaint_detail', cid=duplicate_of.id) }}">complaint #{{ duplicate_of.id }}</a>.
+      </p>
+      <div style="background: #f8f6fe; border-radius: 10px; padding: 14px; font-size: 13.5px;">
+        <div style="font-weight: 700; margin-bottom: 4px;">#{{ duplicate_of.id }} — {{ duplicate_of.title }}</div>
+        <div style="color: var(--muted);">{{ duplicate_of.description }}</div>
+        <div style="margin-top: 8px;">
+          <span class="badge badge-{{ duplicate_of.priority | lower }}">{{ duplicate_of.priority }}</span>
+          <span class="badge badge-cat">{{ duplicate_of.category }}</span>
+          <span class="badge badge-{{ duplicate_of.status | lower | replace(' ', '-') }}">{{ duplicate_of.status }}</span>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Related complaints -->
+    {% if related %}
+    <div class="card">
+      <h2 class="card-title">Related complaints <span class="hint">· same locality & category</span></h2>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th>ID</th><th>Title</th><th>Priority</th><th>Status</th><th>Date</th></tr>
+          </thead>
+          <tbody>
+            {% for r in related %}
+            <tr>
+              <td class="muted"><a class="link" href="{{ url_for('complaint_detail', cid=r.id) }}">#{{ r.id }}</a></td>
+              <td style="font-weight: 600;">{{ r.title }}</td>
+              <td><span class="badge badge-{{ r.priority | lower }}">{{ r.priority }}</span></td>
+              <td><span class="badge badge-{{ r.status | lower | replace(' ', '-') }}">{{ r.status }}</span></td>
+              <td class="muted">{{ r.created_at | pretty_date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Sidebar info -->
+  <div>
+    <div class="card" style="margin-bottom: 18px;">
+      <h2 class="card-title">Classification</h2>
+      <div class="kv">
+        <b>Category</b><span>{{ c.category }}</span>
+        <b>Confidence</b><span>{{ (c.confidence * 100) | round(1) if c.confidence else '—' }}%</span>
+        <b>Priority</b><span>{{ c.priority }}</span>
+        <b>Source</b><span>{{ c.source }}</span>
+        <b>Locality</b><span>{{ c.ward }}</span>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 18px;">
+      <h2 class="card-title">AI Integrity & Analysis</h2>
+      <div class="kv">
+        <b>Fraud Risk</b>
+        <span style="font-weight: 600; color: {{ 'red' if c.fraud_level == 'High' else 'orange' if c.fraud_level == 'Medium' else 'green' }}">
+          {{ c.fraud_level or 'Low' }} ({{ c.fraud_score or 0 }})
+        </span>
+        <b>Incident Cluster</b><span>{{ c.cluster_id or 'None' }}</span>
+      </div>
+      {% if c.fraud_explanation %}
+      <div style="margin-top: 12px; font-size: 13px; color: var(--ink); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 10px;">
+        <b style="display: block; margin-bottom: 4px;">Fraud Analysis:</b>
+        {{ c.fraud_explanation }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Priority breakdown -->
+    {% if c.priority_breakdown or c.xai_explanation %}
+    <div class="card" style="margin-bottom: 18px;">
+      <h2 class="card-title">Decision Transparency <span class="hint">· AI Reasoning</span></h2>
+
+      {% if c.priority_breakdown %}
+      <div style="margin-bottom: 20px;">
+        <p style="font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--ink);">Priority Scoring</p>
+        {% set bd = c.priority_breakdown %}
+        {% set labels = {'keywords': 'Urgency keywords', 'category_risk': 'Category risk', 'emotion': 'Emotive language', 'frequency': 'Locality frequency', 'age': 'Complaint age'} %}
+        {% set colors = {'keywords': '#e5484d', 'category_risk': '#021f94', 'emotion': '#f5a524', 'frequency': '#7048e8', 'age': '#30a46c'} %}
+        {% set max_score = 3.6 %}
+        {% for key in ['keywords', 'category_risk', 'emotion', 'frequency', 'age'] %}
+        <div style="margin-bottom: 10px;">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px;">
+            <span style="font-weight: 600;">{{ labels[key] }}</span>
+            <span class="muted">{{ bd.get(key, 0) }}</span>
+          </div>
+          <div style="height: 8px; background: #e4e7f0; border-radius: 999px; overflow: hidden;">
+            <div style="height: 100%; width: {{ (bd.get(key, 0) / max_score * 100) | round(1) }}%; background: {{ colors[key] }}; border-radius: 999px; transition: width .6s ease;"></div>
+          </div>
+        </div>
+        {% endfor %}
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 700; font-size: 14px;">Total Priority Score</span>
+          <span style="font-weight: 800; font-size: 18px; color: var(--brand);">{{ c.priority_score }}</span>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if c.xai_explanation %}
+      <div style="background: #fcfcfc; border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: 13px; line-height: 1.6;">
+        <p style="font-weight: 700; margin: 0 0 8px; color: var(--ink);">Explainable AI (XAI) Insight:</p>
+        <div style="color: #444; white-space: pre-wrap;">{{ c.xai_explanation }}</div>
+      </div>
+      {% endif %}
+
+      <div style="display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: var(--muted);">
+      <span>Priority: High ≥ 3.2 | Medium ≥ 1.6 | Low &lt; 1.6</span>
+    </div>
+    </div>
+    {% endif %}
+
+    <div class="card" style="margin-bottom: 18px;">
+      <h2 class="card-title">Timestamps</h2>
+      <div class="kv">
+        <b>Filed</b><span>{{ c.created_at | pretty_date }}</span>
+        <b>Processed</b><span>{{ c.processed_at | pretty_date if c.processed_at else '—' }}</span>
+        <b>Status</b><span>{{ c.status }}</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Confidence</h2>
+      {% if c.confidence %}
+      <div style="margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+          <span class="muted">Model certainty</span>
+          <span style="font-weight: 700;">{{ (c.confidence * 100) | round(1) }}%</span>
+        </div>
+        <div class="conf-bar">
+          <div class="conf-fill" style="width: {{ (c.confidence * 100) | round(1) }}%"></div>
+        </div>
+      </div>
+      {% else %}
+      <p class="muted" style="font-size: 13px;">No confidence data available.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

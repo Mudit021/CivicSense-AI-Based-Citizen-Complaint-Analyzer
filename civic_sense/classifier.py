@@ -9,6 +9,10 @@ cross-validation.
 An optional zero-shot DistilBERT classifier (via HuggingFace transformers)
 is used instead when USE_TRANSFORMERS=1 and the heavy dependencies are
 installed — this mirrors the paper's BERT/DistilBERT approach.
+
+This module only classifies; fraud scoring, duplicate detection, and incident
+clustering live in separate modules so classification results stay
+interpretable.
 """
 import json
 

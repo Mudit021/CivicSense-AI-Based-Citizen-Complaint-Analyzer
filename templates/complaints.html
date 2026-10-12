@@ -21,13 +21,16 @@
       {% for p in priorities %}<option value="{{ p }}" {{ 'selected' if filters.priority == p }}>{{ p }}</option>{% endfor %}
     </select>
     <select name="ward">
-      <option value="">All wards</option>
+      <option value="">All localities</option>
       {% for w in wards %}<option value="{{ w }}" {{ 'selected' if filters.ward == w }}>{{ w }}</option>{% endfor %}
     </select>
     <select name="status">
       <option value="">All statuses</option>
       {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if filters.status == s }}>{{ s }}</option>{% endfor %}
     </select>
+    <div class="search" style="min-width:140px">
+      <input type="text" name="id" value="{{ filters.cid }}" placeholder="ID #">
+    </div>
     <div class="search" style="flex:1; min-width:220px">
       <input type="text" name="q" value="{{ filters.q }}" placeholder="Search complaints…">
     </div>
@@ -42,21 +45,26 @@
     <table class="data">
       <thead>
         <tr>
-          <th>ID</th><th>Complaint</th><th>Category</th><th>Ward</th>
-          <th>Priority</th><th>Status</th><th>Source</th><th>Confidence</th><th>Received</th>
+          <th>ID</th><th>Complaint</th><th>Category</th><th>Locality</th>
+          <th>Priority</th><th>Fraud Risk</th><th>Status</th><th>Source</th><th>Confidence</th><th>Received</th>
         </tr>
       </thead>
       <tbody>
         {% for c in rows %}
         <tr>
-          <td class="muted">#{{ c.id }}</td>
+          <td class="muted"><a class="link" href="{{ url_for('complaint_detail', cid=c.id) }}">#{{ c.id }}</a></td>
           <td class="title-cell" style="max-width: 300px">
-            {{ c.title }}
+            <a class="link" href="{{ url_for('complaint_detail', cid=c.id) }}" style="color: var(--ink); text-decoration: none;">{{ c.title }}</a>
             {% if c.is_duplicate %}<span class="badge badge-dup" title="Duplicate of #{{ c.duplicate_of }}">dup</span>{% endif %}
           </td>
           <td><span class="badge badge-cat">{{ c.category }}</span></td>
           <td>{{ c.ward }}</td>
           <td><span class="badge badge-{{ c.priority | lower }}">{{ c.priority }}</span></td>
+          <td>
+            <span class="badge badge-{{ 'red' if c.fraud_level == 'High' else 'amber' if c.fraud_level == 'Medium' else 'green' }}">
+              {{ c.fraud_level or 'Low' }}
+            </span>
+          </td>
           <td>
             <form method="post" action="{{ url_for('update_status', cid=c.id) }}">
               <select name="status" onchange="this.form.submit()"

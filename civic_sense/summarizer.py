@@ -1,7 +1,7 @@
 """Summarization & report generation (paper section 3.5).
 
 1. Extractive summarization of individual complaint clusters.
-2. Weekly digests in the exact style of the paper's example:
+2. Weekly digests in the style of the paper's example:
    "There are 42 road complaints in ward 5 this week primarily touching on
     potholes and damaged footpaths. Priority: High."
 
@@ -9,6 +9,9 @@ When OPENAI_API_KEY is configured, the digest is written by a generative LLM
 with the statistics as context; otherwise the built-in template engine
 produces deterministic, offline digests (still "generative" in the sense of
 producing natural-language narrative from structured statistics).
+
+The generated digest is stored in the reports table through the Flask route in
+app.py; PDF and Excel rendering happen in civic_sense/reports.py.
 """
 import re
 import urllib.request
@@ -118,7 +121,7 @@ def _template_digest(rows, period_label: str) -> str:
     parts = [
         _overview(rows, period_label),
         "",
-        "Ward-level highlights:",
+        "Locality-level highlights:",
         *[f"  - {s}" for s in _ward_statements(rows)],
         "",
         _recommendations(rows),
