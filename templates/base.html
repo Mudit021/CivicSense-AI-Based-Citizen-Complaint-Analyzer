@@ -46,5 +46,31 @@
     {% block content %}{% endblock %}
   </main>
 </div>
+
+<!-- Global Lightbox Modal for Photo Evidence -->
+<div id="lightbox-modal" class="lightbox-modal" onclick="closeLightbox()">
+  <span class="lightbox-close">&times;</span>
+  <img id="lightbox-img" class="lightbox-content" src="" alt="Full Evidence" onclick="event.stopPropagation()">
+</div>
+
+<script>
+function openLightbox(src) {
+  const modal = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  if (modal && img) {
+    img.src = src;
+    modal.classList.add('active');
+  }
+}
+function closeLightbox() {
+  const modal = document.getElementById('lightbox-modal');
+  if (modal) modal.classList.remove('active');
+}
+</script>
+
+<!-- Global Complaint Detail & Batch Resolution Modal -->
+{% include "components/complaint_modal.html" %}
+<script src="{{ url_for('static', filename='js/complaint_modal.js') }}"></script>
+
 </body>
 </html>

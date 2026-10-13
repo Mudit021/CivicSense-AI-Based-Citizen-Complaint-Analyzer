@@ -304,8 +304,96 @@ def get_report(rid: int):
 
 
 def update_status(cid: int, status: str) -> None:
+    now_ts = datetime.now().isoformat(timespec="seconds")
     with get_conn() as conn:
-        conn.execute("UPDATE complaints SET status = ? WHERE id = ?", (status, cid))
+        conn.execute("UPDATE complaints SET status = ?, processed_at = ? WHERE id = ?", (status, now_ts, cid))
+
+
+def batch_update_status(cids: list, status: str) -> int:
+    """Batch-update resolution status for multiple complaints in a single transaction."""
+    if not cids:
+        return 0
+    now_ts = datetime.now().isoformat(timespec="seconds")
+    clean_ids = [int(x) for x in cids if str(x).isdigit()]
+    if not clean_ids:
+        return 0
+    placeholders = ",".join("?" for _ in clean_ids)
+    with get_conn() as conn:
+        cur = conn.execute(
+            f"UPDATE complaints SET status = ?, processed_at = ? WHERE id IN ({placeholders})",
+            [status, now_ts] + clean_ids
+        )
+        return cur.rowcount
+
+
+def get_similar_complaints(cid: int, limit: int = 8) -> list:
+    """Retrieve similar, duplicate, or cascading complaints for a given complaint ID.
+    
+    Computes text sequence similarity, categorical matching, spatial adjacency,
+    and duplicate relationships to provide a ranked list of related complaints.
+    """
+    from difflib import SequenceMatcher
+    target = get_complaint(cid)
+    if not target:
+        return []
+
+    target_desc = (target.get("description") or "").lower()
+    target_ward = target.get("ward") or ""
+    target_cat = target.get("category") or ""
+    target_floor = target.get("floor") or ""
+    target_room = target.get("room_number") or ""
+    target_dup_of = target.get("duplicate_of")
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            """SELECT * FROM complaints 
+               WHERE id != ? 
+                 AND (ward = ? OR category = ? OR duplicate_of = ? OR id = ? OR is_duplicate = 1)
+               ORDER BY created_at DESC LIMIT 250""",
+            (cid, target_ward, target_cat, cid, target_dup_of if target_dup_of else -1)
+        ).fetchall()
+
+    scored = []
+    for r in rows:
+        item = dict(r)
+        other_id = item["id"]
+        other_desc = (item.get("description") or "").lower()
+        
+        # 1. Direct duplicate relationship
+        if (target_dup_of and other_id == target_dup_of) or (item.get("duplicate_of") == cid):
+            match_score = 0.98
+            rel_type = "Verified Duplicate"
+        elif target_dup_of and item.get("duplicate_of") == target_dup_of:
+            match_score = 0.95
+            rel_type = "Co-Duplicate Cluster"
+        else:
+            # 2. Text sequence similarity
+            text_sim = SequenceMatcher(None, target_desc, other_desc).ratio()
+            
+            # 3. Categorical & spatial bonuses
+            cat_bonus = 0.25 if item.get("category") == target_cat else 0.0
+            ward_bonus = 0.20 if item.get("ward") == target_ward else 0.0
+            floor_bonus = 0.10 if (target_floor and item.get("floor") == target_floor) else 0.0
+            room_bonus = 0.15 if (target_room and item.get("room_number") == target_room) else 0.0
+            
+            match_score = (text_sim * 0.45) + cat_bonus + ward_bonus + floor_bonus + room_bonus
+            match_score = min(0.99, match_score)
+            
+            if match_score >= 0.70:
+                rel_type = "High Structural Match"
+            elif match_score >= 0.45:
+                rel_type = "Spatial / Category Cluster"
+            else:
+                rel_type = "Contextual Related"
+
+        if match_score >= 0.32:
+            item["similarity_pct"] = round(match_score * 100, 1)
+            item["relation_type"] = rel_type
+            scored.append((match_score, item))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [x[1] for x in scored[:limit]]
+
 
 
 def complaints_in_period(start: str, end: str) -> list:

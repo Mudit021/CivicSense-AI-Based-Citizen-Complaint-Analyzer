@@ -123,13 +123,10 @@ client.post(f"/complaints/{cid}/status", data={"status": "Open"})
 check("digest mentions priority", "Priority" in latest["summary"])
 
 # --- duplicate detection (identical complaint submitted twice) ---------------
-# Use a unique description (timestamped) so it can never collide with records
-# from a previous test run; the only possible match is the submission above it.
-import uuid, random
-_items = ["projector mount", "desk bench", "fan switch", "lan port", "water tap"]
-_verbs = ["broken and hanging", "completely damaged", "dislodged", "shattered"]
-_token = "".join(c for c in uuid.uuid4().hex if c.isalpha())[:10]
-_unique = f"Classroom equipment {_token} {random.choice(_items)} was {random.choice(_verbs)}"
+# Use a unique description so it cannot collide with existing database records
+import uuid
+_token = "".join(c for c in uuid.uuid4().hex if c.isalpha())[:12]
+_unique = f"Experimental apparatus fixture {_token} assembly unit {_token} experienced unprecedented system disruption {_token}"
 first = client.post("/api/complaints", json={
     "description": _unique,
     "ward": "Block C", "source": "Student Portal"}).get_json()
@@ -141,6 +138,17 @@ check("duplicate detection",
       and second is not None and second.get("is_duplicate") is True
       and second.get("duplicate_of") == first.get("id"),
       str(second))
+
+# --- Detail View & Batch Resolution Endpoints ---
+test_cid = first.get("id")
+r_detail = client.get(f"/complaints/{test_cid}")
+check("GET /complaints/<id> (Detail View)", r_detail.status_code == 200 and "Grievance Description" in r_detail.get_data(as_text=True))
+
+r_api_details = client.get(f"/api/complaints/{test_cid}/details")
+check("GET /api/complaints/<id>/details", r_api_details.status_code == 200 and r_api_details.get_json().get("status") == "success")
+
+r_batch = client.post("/api/complaints/batch-status", json={"ids": [test_cid, second.get("id")], "status": "Resolved"})
+check("POST /api/complaints/batch-status", r_batch.status_code == 200 and r_batch.get_json().get("updated_count") == 2)
 
 # --- auto location detection (/api/detect-location) -------------------------
 # Test with PCU campus center coordinates (18.749034, 73.606889)

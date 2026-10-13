@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}Grievance #{{ c.id }} · {{ c.title }}{% endblock %}
+{% block content %}
+
+<div class="page-head" style="margin-bottom: 20px;">
+  <div>
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 4px;">
+      <a href="{{ url_for('complaints') }}" class="muted" style="text-decoration:none; font-size:13px;">← Back to Complaints</a>
+      <span class="muted">/</span>
+      <span class="mono" style="font-weight:700; color:var(--ink);">#{{ c.id }}</span>
+    </div>
+    <h1 class="page-title" style="margin: 0; font-size: 24px;">{{ c.title }}</h1>
+    <p class="page-sub" style="margin-top: 4px;">Received on {{ c.created_at | pretty_date }} via {{ c.source }}</p>
+  </div>
+  <div style="display:flex; gap:10px; align-items:center;">
+    <form method="post" action="{{ url_for('update_status', cid=c.id) }}" style="display:flex; gap:8px;">
+      <select name="status" class="status-select badge badge-{{ c.status | lower | replace(' ', '-') }}" onchange="this.form.submit()" style="padding:6px 14px; font-size:13px; font-weight:700;">
+        {% for s in statuses %}
+        <option value="{{ s }}" {{ 'selected' if c.status == s }}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    {% if c.status != 'Resolved' %}
+    <button type="button" class="btn btn-resolve-quick" onclick="resolveSingleComplaint({{ c.id }}, this)">✓ Mark Resolved</button>
+    {% endif %}
+  </div>
+</div>
+
+<div class="detail-grid">
+  <!-- Left / Main Column -->
+  <div class="detail-main-col">
+    
+    <!-- Grievance Description Card -->
+    <div class="card detail-section-card">
+      <div class="detail-card-head">
+        <span class="detail-card-title">📝 Grievance Description</span>
+        <span class="badge badge-cat">{{ c.category }}</span>
+      </div>
+      <div class="complaint-desc-box">{{ c.description }}</div>
+      
+      <div class="location-chips-row">
+        <span class="loc-chip"><b>{{ c.ward }}</b></span>
+        {% if c.floor %}<span class="loc-chip">Floor: {{ c.floor }}</span>{% endif %}
+        {% if c.room_number %}<span class="loc-chip">Room: {{ c.room_number }}</span>{% endif %}
+        {% if c.sub_location %}<span class="loc-chip">{{ c.sub_location }}</span>{% endif %}
+        <span class="loc-chip source-chip">Source: {{ c.source }}</span>
+        {% if c.is_duplicate %}<span class="badge badge-dup">Duplicate of #{{ c.duplicate_of }}</span>{% endif %}
+        {% if c.is_suspicious %}<span class="badge badge-suspicious">⚠️ Anomaly / Suspicious</span>{% endif %}
+      </div>
+    </div>
+
+    <!-- Photo Evidence Card -->
+    {% if c.image_url %}
+    <div class="card detail-section-card">
+      <div class="detail-card-head">
+        <span class="detail-card-title">📷 Photo Evidence & Multimodal Alignment</span>
+        <span class="badge" style="background:#e8f4fd;color:#1971c2;font-size:11px;">Pillar 1: AG-CMA</span>
+      </div>
+      <div class="evidence-display-wrap">
+        <div class="evidence-img-container" onclick="openLightbox('{{ c.image_url }}')">
+          <img src="{{ c.image_url }}" alt="Evidence">
+          <div class="img-zoom-hint">🔍 Click to zoom full resolution</div>
+        </div>
+        <div class="evidence-meta-panel">
+          {% if img_meta %}
+          <div class="meta-kv-item"><span class="meta-label">Sharpness:</span> <span class="meta-val">{{ img_meta.sharpness_score }} ({{ img_meta.sharpness_label }})</span></div>
+          <div class="meta-kv-item"><span class="meta-label">Defect Features:</span> <span class="meta-val">{{ img_meta.defect_tags | join(', ') if img_meta.defect_tags else 'Visual defect detected' }}</span></div>
+          <div class="meta-kv-item"><span class="meta-label">Resolution:</span> <span class="meta-val">{{ img_meta.dimensions }}</span></div>
+          {% if img_meta.perceptual_hash %}<div class="meta-kv-item"><span class="meta-label">Perceptual dHash:</span> <span class="meta-val mono" style="font-size:11px;">{{ img_meta.perceptual_hash }}</span></div>{% endif %}
+          {% else %}
+          <div class="muted">Photo evidence verified and cataloged.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Similar Complaints & 1-Click Batch Resolution Card -->
+    <div class="card detail-section-card similar-section-card">
+      <div class="detail-card-head">
+        <div>
+          <span class="detail-card-title">🔗 Similar & Duplicate Grievances</span>
+          <span class="hint">· NCM-Net Multimodal Cluster</span>
+        </div>
+        <span class="badge badge-dup">{{ similar | length }} Similar Found</span>
+      </div>
+
+      {% if similar %}
+      <!-- Batch Action Toolbar -->
+      <div class="batch-action-toolbar">
+        <div class="batch-select-all">
+          <input type="checkbox" id="page-select-all" onchange="toggleSelectAllPage(this.checked)">
+          <label for="page-select-all" style="cursor:pointer; font-weight:600; font-size:12.5px;">
+            Select All Open (<span id="page-open-count">{{ similar | selectattr('status', 'ne', 'Resolved') | list | length }}</span>)
+          </label>
+        </div>
+        <div class="batch-buttons">
+          <button type="button" class="btn btn-resolve-batch" id="page-btn-batch-resolve" onclick="resolvePageBatchSelected()" disabled>
+            ✓ Resolve Selected (<span id="page-selected-count">0</span>)
+          </button>
+        </div>
+      </div>
+
+      <!-- List of Similar Complaints -->
+      <div class="similar-list-container">
+        {% for sim in similar %}
+        <div class="similar-item-card {{ 'item-resolved' if sim.status == 'Resolved' }}" id="sim-row-{{ sim.id }}">
+          <div class="similar-item-check">
+            {% if sim.status != 'Resolved' %}
+            <input type="checkbox" class="page-sim-check" value="{{ sim.id }}" onchange="updatePageSelectedCount()">
+            {% else %}
+            <span class="text-success" style="font-weight:700;">✓</span>
+            {% endif %}
+          </div>
+          
+          {% if sim.image_url %}
+          <div class="similar-item-thumb" onclick="openLightbox('{{ sim.image_url }}')">
+            <img src="{{ sim.image_url }}" alt="Evidence">
+          </div>
+          {% endif %}
+
+          <div class="similar-item-content">
+            <div class="similar-item-header">
+              <a href="{{ url_for('complaint_detail', cid=sim.id) }}" class="similar-item-title">
+                <b>#{{ sim.id }}</b> · {{ sim.title }}
+              </a>
+              <span class="similar-match-pill">{{ sim.similarity_pct }}% Match · {{ sim.relation_type }}</span>
+            </div>
+            <div class="similar-item-desc">{{ sim.description[:95] }}{% if sim.description|length > 95 %}...{% endif %}</div>
+            <div class="similar-item-meta">
+              <span>📍 {{ sim.ward }}{% if sim.floor %} · {{ sim.floor }}{% endif %}{% if sim.room_number %} · {{ sim.room_number }}{% endif %}</span>
+              <span class="badge badge-{{ sim.priority | lower }}">{{ sim.priority }}</span>
+              <span class="badge badge-{{ sim.status | lower | replace(' ', '-') }}" id="sim-badge-{{ sim.id }}">{{ sim.status }}</span>
+              <span class="muted">{{ sim.created_at | pretty_date }}</span>
+            </div>
+          </div>
+
+          <div class="similar-item-action">
+            {% if sim.status != 'Resolved' %}
+            <button type="button" class="btn secondary small btn-resolve-single" onclick="resolveSingleComplaint({{ sim.id }}, this)">
+              Resolve
+            </button>
+            {% else %}
+            <span class="badge badge-resolved">Resolved</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty" style="padding: 24px;">No other similar complaints found in this location or category.</div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- Right / AI Triage Column -->
+  <div class="detail-side-col">
+    <!-- NLP Classification -->
+    <div class="card detail-section-card">
+      <span class="detail-card-title">🤖 Category Classification</span>
+      <div style="margin-top: 8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="badge badge-cat" style="font-size:13px; padding:4px 10px;">{{ c.category }}</span>
+          <span class="mono" style="font-weight:700; font-size:14px;">{{ (c.confidence * 100) | round(1) if c.confidence else '—' }}%</span>
+        </div>
+        <div class="conf-bar-track">
+          <div class="conf-bar-fill" style="width:{{ (c.confidence * 100) | round(1) if c.confidence else 0 }}%"></div>
+        </div>
+      </div>
+
+      {% if conformal_info and conformal_info.prediction_set %}
+      <div style="margin-top:14px;">
+        <div class="meta-label">Pillar 2 Conformal Prediction Set C(X):</div>
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;">
+          {% for s in conformal_info.prediction_set %}
+          <span class="badge" style="background:#e8f4fd; color:#1971c2; font-size:11px;">{{ s }}</span>
+          {% endfor %}
+        </div>
+        <div class="muted text-small" style="margin-top:4px;">90% finite-sample guaranteed coverage</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Priority & Safety -->
+    <div class="card detail-section-card">
+      <span class="detail-card-title">⚡ Triage Priority & Safety</span>
+      <div style="margin-top: 8px; display:flex; justify-content:space-between; align-items:center;">
+        <span class="badge badge-{{ c.priority | lower }}" style="font-size:14px; padding:4px 12px;">{{ c.priority }}</span>
+      </div>
+
+      {% if breakdown and breakdown._symbolic_res and breakdown._symbolic_res.escalated %}
+      <div class="symbolic-axiom-alert" style="margin-top:10px;">
+        <div style="font-weight:700; font-size:12px;">⚡ Neuro-Symbolic Safety Axiom Triggered:</div>
+        <div style="font-size:11.5px; margin-top:2px;">{{ breakdown._symbolic_res.explanation }}</div>
+      </div>
+      {% endif %}
+
+      <div class="priority-expl-box" style="margin-top:10px;">
+        {{ explanation }}
+      </div>
+    </div>
+
+    <!-- Spatial & Integrity -->
+    <div class="card detail-section-card">
+      <span class="detail-card-title">📍 Spatial Adjacency & Integrity</span>
+      <div class="meta-kv-grid" style="margin-top:8px;">
+        <div class="meta-kv-item">
+          <span class="meta-label">Campus GIS Location:</span>
+          <span class="meta-val mono" style="font-size:12px;">{{ c.lat }}, {{ c.lon }}</span>
+        </div>
+        <div class="meta-kv-item">
+          <span class="meta-label">Geo Source:</span>
+          <span class="meta-val">{{ c.geo_source }}</span>
+        </div>
+        <div class="meta-kv-item">
+          <span class="meta-label">Legitimacy Audit:</span>
+          <span class="meta-val">{{ '⚠️ Suspicious (' ~ (c.suspicion_score * 100)|round(0) ~ '%)' if c.is_suspicious else 'Clean / Authentic' }}</span>
+        </div>
+        {% if c.is_duplicate %}
+        <div class="meta-kv-item">
+          <span class="meta-label">Duplicate Status:</span>
+          <span class="meta-val text-warning">Duplicate of #{{ c.duplicate_of }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function toggleSelectAllPage(checked) {
+  document.querySelectorAll('.page-sim-check').forEach(cb => cb.checked = checked);
+  updatePageSelectedCount();
+}
+
+function updatePageSelectedCount() {
+  const selected = document.querySelectorAll('.page-sim-check:checked');
+  const countSpan = document.getElementById('page-selected-count');
+  const btn = document.getElementById('page-btn-batch-resolve');
+  if (countSpan) countSpan.textContent = selected.length;
+  if (btn) btn.disabled = (selected.length === 0);
+}
+
+function resolvePageBatchSelected() {
+  const checks = Array.from(document.querySelectorAll('.page-sim-check:checked'));
+  const ids = checks.map(cb => parseInt(cb.value));
+  if (!ids.length) return;
+
+  const btn = document.getElementById('page-btn-batch-resolve');
+  if (btn) btn.disabled = true;
+
+  fetch('/api/complaints/batch-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids: ids, status: 'Resolved' })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      ids.forEach(id => {
+        const row = document.getElementById('sim-row-' + id);
+        const badge = document.getElementById('sim-badge-' + id);
+        if (badge) {
+          badge.className = 'badge badge-resolved';
+          badge.textContent = 'Resolved';
+        }
+        if (row) {
+          row.classList.add('item-resolved');
+          const checkWrap = row.querySelector('.similar-item-check');
+          if (checkWrap) checkWrap.innerHTML = '<span class="text-success" style="font-weight:700;">✓</span>';
+          const actionWrap = row.querySelector('.similar-item-action');
+          if (actionWrap) actionWrap.innerHTML = '<span class="badge badge-resolved">Resolved</span>';
+        }
+      });
+      updatePageSelectedCount();
+      const openCount = document.getElementById('page-open-count');
+      if (openCount) {
+        const remaining = document.querySelectorAll('.page-sim-check').length;
+        openCount.textContent = remaining;
+      }
+    }
+  });
+}
+
+function resolveSingleComplaint(cid, btn) {
+  if (btn) btn.disabled = true;
+  fetch('/api/complaints/' + cid + '/status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'Resolved' })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      const badge = document.getElementById('sim-badge-' + cid);
+      if (badge) {
+        badge.className = 'badge badge-resolved';
+        badge.textContent = 'Resolved';
+      }
+      const row = document.getElementById('sim-row-' + cid);
+      if (row) {
+        row.classList.add('item-resolved');
+        const checkWrap = row.querySelector('.similar-item-check');
+        if (checkWrap) checkWrap.innerHTML = '<span class="text-success" style="font-weight:700;">✓</span>';
+        const actionWrap = row.querySelector('.similar-item-action');
+        if (actionWrap) actionWrap.innerHTML = '<span class="badge badge-resolved">Resolved</span>';
+      }
+      if (btn && btn.classList.contains('btn-resolve-quick')) {
+        btn.textContent = '✓ Resolved';
+        btn.style.background = '#2b8a3e';
+      }
+      updatePageSelectedCount();
+    }
+  });
+}
+</script>
+
+{% endblock %}

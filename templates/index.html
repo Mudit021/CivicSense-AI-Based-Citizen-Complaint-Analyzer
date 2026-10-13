@@ -207,17 +207,17 @@
         <thead><tr><th>Grievance</th><th>Location & Room</th><th>Priority</th><th>Time</th></tr></thead>
         <tbody>
           {% for c in recent %}
-          <tr>
+          <tr id="recent-row-{{ c.id }}">
             <td class="title-cell">
               <div style="display:flex; align-items:center; gap:8px;">
                 {% if c.image_url %}
-                <span class="thumb-modal-link" onclick="openLightbox('{{ c.image_url }}')" title="View photo evidence">
+                <span class="thumb-modal-link" onclick="openComplaintModal({{ c.id }})" title="View photo evidence & details">
                   <img src="{{ c.image_url }}" alt="Photo">
                 </span>
                 {% endif %}
                 <div>
-                  <div>{{ c.title }}</div>
-                  {% if c.sub_location %}<span class="muted" style="font-size:11px;">{{ c.sub_location }}</span>{% endif %}
+                  <a href="{{ url_for('complaint_detail', cid=c.id) }}" onclick="event.preventDefault(); openComplaintModal({{ c.id }});" class="complaint-link" style="font-weight:600; font-size:13px; display:inline-block;">{{ c.title }}</a>
+                  {% if c.sub_location %}<div class="muted" style="font-size:11px;">{{ c.sub_location }}</div>{% endif %}
                 </div>
               </div>
             </td>
@@ -240,23 +240,7 @@
 <script id="hotspot-data" type="application/json">{{ hotspots | tojson }}</script>
 <script id="incident-data" type="application/json">{{ map_incidents | tojson }}</script>
 
-<!-- Lightbox Modal for Photo Evidence -->
-<div id="lightbox-modal" class="lightbox-modal" onclick="closeLightbox()">
-  <span class="lightbox-close">&times;</span>
-  <img id="lightbox-img" class="lightbox-content" src="" alt="Full Evidence" onclick="event.stopPropagation()">
-</div>
-
 <script>
-function openLightbox(src) {
-  const modal = document.getElementById('lightbox-modal');
-  const img = document.getElementById('lightbox-img');
-  img.src = src;
-  modal.classList.add('active');
-}
-
-function closeLightbox() {
-  document.getElementById('lightbox-modal').classList.remove('active');
-}
 
 document.addEventListener("DOMContentLoaded", function() {
   // Apply data-driven styles dynamically
@@ -420,7 +404,8 @@ document.addEventListener("DOMContentLoaded", function() {
           ${imageSnippet}
           <div style="font-weight:600; margin-bottom:4px; color:#1e2a4a;">${inc.title}</div>
           <div style="font-size:11px; color:#5b6478; margin-bottom:6px;">Category: <b>${inc.category}</b></div>
-          <div style="display:flex; gap:4px; flex-wrap:wrap;">${dupBadge} ${suspBadge} ${photoBadge}</div>
+          <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:8px;">${dupBadge} ${suspBadge} ${photoBadge}</div>
+          <button type="button" class="btn secondary small" style="width:100%; padding:4px 8px; font-size:11.5px; font-weight:600;" onclick="openComplaintModal(${inc.id})">🔍 View Details & Similar</button>
         </div>
       `);
       markerGroup.addLayer(marker);

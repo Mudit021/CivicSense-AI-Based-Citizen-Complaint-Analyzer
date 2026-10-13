@@ -385,10 +385,124 @@ def api_conformal_stats():
     }), 200
 
 
+@app.route("/complaints/<int:cid>")
+def complaint_detail(cid):
+    c = database.get_complaint(cid)
+    if not c:
+        abort(404)
+    similar = database.get_similar_complaints(cid, limit=8)
+    img_meta = {}
+    if c.get("image_analysis"):
+        try:
+            img_meta = json.loads(c["image_analysis"])
+        except Exception:
+            img_meta = {}
+
+    from civic_sense.prioritizer import assign_priority, priority_explanation
+    _, score, breakdown = assign_priority(c["description"], c["category"], c["ward"],
+                                          c["created_at"], len(similar), image_result=img_meta)
+    explanation = priority_explanation(breakdown, score)
+
+    conformal_info = {}
+    if hasattr(classifier, "conformal_predict"):
+        try:
+            conformal_info = classifier.conformal_predict(c["description"], alpha=0.10)
+        except Exception:
+            conformal_info = {}
+
+    return render_template(
+        "complaint_detail.html",
+        c=c,
+        similar=similar,
+        img_meta=img_meta,
+        explanation=explanation,
+        breakdown=breakdown,
+        conformal_info=conformal_info,
+        statuses=STATUSES,
+        categories=CATEGORIES,
+        priorities=PRIORITIES,
+        metrics=MODEL_METRICS,
+    )
+
+
 @app.route("/api/complaints/<int:cid>")
 def api_complaint(cid):
     c = database.get_complaint(cid)
     return jsonify(c) if c else (jsonify({"error": "not found"}), 404)
+
+
+@app.route("/api/complaints/<int:cid>/details")
+def api_complaint_details(cid):
+    c = database.get_complaint(cid)
+    if not c:
+        return jsonify({"error": "Complaint not found"}), 404
+    similar = database.get_similar_complaints(cid, limit=8)
+
+    img_meta = {}
+    if c.get("image_analysis"):
+        try:
+            img_meta = json.loads(c["image_analysis"])
+        except Exception:
+            img_meta = {}
+
+    from civic_sense.prioritizer import assign_priority, priority_explanation
+    _, score, breakdown = assign_priority(c["description"], c["category"], c["ward"],
+                                          c["created_at"], len(similar), image_result=img_meta)
+    explanation = priority_explanation(breakdown, score)
+
+    conformal_info = {}
+    if hasattr(classifier, "conformal_predict"):
+        try:
+            conformal_info = classifier.conformal_predict(c["description"], alpha=0.10)
+        except Exception:
+            conformal_info = {}
+
+    return jsonify({
+        "status": "success",
+        "complaint": c,
+        "similar": similar,
+        "image_metadata": img_meta,
+        "explanation": explanation,
+        "breakdown": breakdown,
+        "conformal_prediction": conformal_info,
+        "statuses": STATUSES,
+    }), 200
+
+
+@app.route("/api/complaints/batch-status", methods=["POST"])
+def api_batch_status():
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids", [])
+    status = data.get("status", "Resolved")
+    if status not in STATUSES:
+        return jsonify({"error": f"Invalid status. Must be one of {STATUSES}"}), 400
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"error": "ids list is required"}), 400
+    count = database.batch_update_status(ids, status)
+    return jsonify({
+        "success": True,
+        "updated_count": count,
+        "ids": ids,
+        "status": status,
+        "message": f"Successfully updated {count} complaints to '{status}'"
+    }), 200
+
+
+@app.route("/complaints/<int:cid>/status", methods=["POST"])
+def update_status(cid):
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        status = data.get("status", "")
+    else:
+        status = request.form.get("status", "")
+    if status not in STATUSES:
+        if request.is_json:
+            return jsonify({"error": f"Invalid status. Must be one of {STATUSES}"}), 400
+        abort(400)
+    database.update_status(cid, status)
+    if request.is_json:
+        return jsonify({"success": True, "id": cid, "status": status}), 200
+    return redirect(url_for("complaints"))
 
 
 # ---------------------------------------------------------------------------
@@ -428,15 +542,6 @@ def generate_report():
         report["period_start"], report["period_end"],
         report["title"], report["summary"], "weekly")
     return redirect(url_for("report_view", rid=rid))
-
-
-@app.route("/complaints/<int:cid>/status", methods=["POST"])
-def update_status(cid):
-    status = request.form.get("status", "")
-    if status not in STATUSES:
-        abort(400)
-    database.update_status(cid, status)
-    return redirect(url_for("complaints"))
 
 
 @app.route("/reports/<int:rid>")
