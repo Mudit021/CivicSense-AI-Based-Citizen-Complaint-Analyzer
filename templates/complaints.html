@@ -4,10 +4,10 @@
 
 <div class="page-head">
   <div>
-    <h1 class="page-title">Complaints</h1>
-    <p class="page-sub">{{ rows | length }} complaints shown · every row was auto-classified and prioritized by the AI pipeline</p>
+    <h1 class="page-title">PCU Campus Grievances</h1>
+    <p class="page-sub">{{ rows | length }} grievances listed · auto-classified and prioritized across PCU blocks, hostels, and facilities</p>
   </div>
-  <a class="btn" href="{{ url_for('new_complaint') }}">➕ New complaint</a>
+  <a class="btn" href="{{ url_for('new_complaint') }}">➕ Report New Grievance</a>
 </div>
 
 <form class="card" method="get" style="padding: 14px 18px; margin-bottom: 18px;">
@@ -21,15 +21,24 @@
       {% for p in priorities %}<option value="{{ p }}" {{ 'selected' if filters.priority == p }}>{{ p }}</option>{% endfor %}
     </select>
     <select name="ward">
-      <option value="">All wards</option>
+      <option value="">All campus blocks</option>
       {% for w in wards %}<option value="{{ w }}" {{ 'selected' if filters.ward == w }}>{{ w }}</option>{% endfor %}
+    </select>
+    <select name="floor">
+      <option value="">All floors / levels</option>
+      {% for f in floors %}<option value="{{ f }}" {{ 'selected' if filters.floor == f }}>{{ f }}</option>{% endfor %}
     </select>
     <select name="status">
       <option value="">All statuses</option>
       {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if filters.status == s }}>{{ s }}</option>{% endfor %}
     </select>
-    <div class="search" style="flex:1; min-width:220px">
-      <input type="text" name="q" value="{{ filters.q }}" placeholder="Search complaints…">
+    <select name="is_suspicious">
+      <option value="">All legitimacy</option>
+      <option value="0" {{ 'selected' if filters.is_suspicious == '0' }}>Clean / Verified</option>
+      <option value="1" {{ 'selected' if filters.is_suspicious == '1' }}>🛡️ Suspicious / Spam</option>
+    </select>
+    <div class="search" style="flex:1; min-width:180px">
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Search room, text, issue…">
     </div>
     <button class="btn secondary" type="submit">Filter</button>
     <a class="btn secondary" href="{{ url_for('complaints') }}">Clear</a>
@@ -42,7 +51,7 @@
     <table class="data">
       <thead>
         <tr>
-          <th>ID</th><th>Complaint</th><th>Category</th><th>Ward</th>
+          <th>ID</th><th>Photo</th><th>Grievance</th><th>Category</th><th>Campus Location & Room</th>
           <th>Priority</th><th>Status</th><th>Source</th><th>Confidence</th><th>Received</th>
         </tr>
       </thead>
@@ -50,12 +59,35 @@
         {% for c in rows %}
         <tr>
           <td class="muted">#{{ c.id }}</td>
-          <td class="title-cell" style="max-width: 300px">
-            {{ c.title }}
-            {% if c.is_duplicate %}<span class="badge badge-dup" title="Duplicate of #{{ c.duplicate_of }}">dup</span>{% endif %}
+          <td>
+            {% if c.image_url %}
+            <span class="thumb-modal-link" onclick="openLightbox('{{ c.image_url }}')" title="View photo evidence">
+              <img src="{{ c.image_url }}" alt="Evidence">
+            </span>
+            {% else %}
+            <span class="muted" style="font-size:11px;">—</span>
+            {% endif %}
+          </td>
+          <td class="title-cell" style="max-width: 280px">
+            <div style="font-weight:600;">{{ c.title }}</div>
+            <div class="muted" style="font-size:11px; margin-top:2px;">{{ c.description[:80] }}{% if c.description|length > 80 %}...{% endif %}</div>
+            <div style="display:flex; gap:4px; margin-top:3px; flex-wrap:wrap;">
+              {% if c.image_url %}<span class="badge" style="background:#e8f4fd;color:#1971c2;font-size:10px;padding:1px 6px;">📷 photo</span>{% endif %}
+              {% if c.is_duplicate %}<span class="badge badge-dup" title="Duplicate of #{{ c.duplicate_of }}">dup</span>{% endif %}
+              {% if c.is_suspicious %}<span class="badge badge-suspicious" title="{{ c.suspicion_reason or 'Flagged by anomaly detector' }}">⚠️ anomaly</span>{% endif %}
+            </div>
           </td>
           <td><span class="badge badge-cat">{{ c.category }}</span></td>
-          <td>{{ c.ward }}</td>
+          <td>
+            <b>{{ c.ward }}</b>
+            {% if c.floor or c.room_number or c.sub_location %}
+            <div class="muted" style="font-size:11.5px; margin-top:2px;">
+              {% if c.floor %}{{ c.floor }}{% endif %}
+              {% if c.room_number %} · {{ c.room_number }}{% endif %}
+              {% if c.sub_location %} · {{ c.sub_location }}{% endif %}
+            </div>
+            {% endif %}
+          </td>
           <td><span class="badge badge-{{ c.priority | lower }}">{{ c.priority }}</span></td>
           <td>
             <form method="post" action="{{ url_for('update_status', cid=c.id) }}">
@@ -68,9 +100,9 @@
               </select>
             </form>
           </td>
-          <td class="muted">{{ c.source }}</td>
+          <td class="muted" style="font-size:12px;">{{ c.source }}</td>
           <td class="mono">{{ (c.confidence * 100) | round(1) if c.confidence else '—' }}%</td>
-          <td class="muted">{{ c.created_at | pretty_date }}</td>
+          <td class="muted" style="font-size:11.5px;">{{ c.created_at | pretty_date }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -83,5 +115,24 @@
   <p class="muted" style="padding: 10px 18px 0; font-size: 12px">Showing the first 300 most recent complaints.</p>
   {% endif %}
 </div>
+
+<!-- Lightbox Modal for Photo Evidence -->
+<div id="lightbox-modal" class="lightbox-modal" onclick="closeLightbox()">
+  <span class="lightbox-close">&times;</span>
+  <img id="lightbox-img" class="lightbox-content" src="" alt="Full Evidence" onclick="event.stopPropagation()">
+</div>
+
+<script>
+function openLightbox(src) {
+  const modal = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  modal.classList.add('active');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox-modal').classList.remove('active');
+}
+</script>
 
 {% endblock %}

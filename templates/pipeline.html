@@ -1,37 +1,37 @@
 {% extends "base.html" %}
-{% block title %}AI Pipeline{% endblock %}
+{% block title %}PCU AI Pipeline{% endblock %}
 {% block content %}
 
 <div class="page-head">
   <div>
-    <h1 class="page-title">The AI pipeline</h1>
-    <p class="page-sub">CivicSense implements the six-stage architecture from the base paper, end to end.</p>
+    <h1 class="page-title">PCU Campus AI Pipeline</h1>
+    <p class="page-sub">CivicSense intelligent triage architecture adapted for Pimpri Chinchwad University (PCU), Sate, Maval, Pune.</p>
   </div>
 </div>
 
 <div class="grid grid-3" style="margin-bottom:18px">
   <div class="card hoverable"><div class="kpi">
     <div class="kpi-icon">🧠</div>
-    <div><div class="kpi-value" style="font-size:20px">{{ metrics.get('model', 'TF-IDF + LinearSVC') }}</div><div class="kpi-label">Classification model</div></div>
+    <div><div class="kpi-value" style="font-size:20px">{{ metrics.get('model', 'TF-IDF + LinearSVC') }}</div><div class="kpi-label">Campus Classifier</div></div>
   </div></div>
   <div class="card hoverable"><div class="kpi">
     <div class="kpi-icon green">🎯</div>
-    <div><div class="kpi-value">{{ (metrics.get('accuracy', 0) * 100) | round(1) }}%</div><div class="kpi-label">Hold-out accuracy</div></div>
+    <div><div class="kpi-value">{{ (metrics.get('accuracy', 0) * 100) | round(1) }}%</div><div class="kpi-label">5-Fold CV Accuracy</div></div>
   </div></div>
   <div class="card hoverable"><div class="kpi">
     <div class="kpi-icon amber">📚</div>
-    <div><div class="kpi-value">{{ metrics.get('samples', 0) }}</div><div class="kpi-label">Training samples</div></div>
+    <div><div class="kpi-value">{{ metrics.get('samples', 0) }}</div><div class="kpi-label">PCU Training Grievances</div></div>
   </div></div>
 </div>
 
 <div class="grid grid-2">
   {% for step in [
-    ("1 · Data Collection", "📡", "Complaints arrive via mobile apps, web portals, email, call centres and social media. All channels are aggregated through a REST API into the central database (SQLite here; PostgreSQL/MongoDB in production)."),
-    ("2 · Preprocessing", "🧹", "Text cleaning removes URLs, symbols and noise; tokenization splits sentences; lemmatization reduces words to base forms; stop words are dropped; duplicate complaints are detected by normalized-text similarity."),
-    ("3 · Classification", "🏷️", "An NLP model assigns each complaint to one of five service categories — Roads, Electricity, Water Supply, Waste Management, Public Safety — with a confidence score (TF-IDF + LinearSVC; optional zero-shot DistilBERT)."),
-    ("4 · Prioritization", "🚨", "A scoring engine blends urgency keywords, category risk, emotive language, the number of similar complaints in the same ward, and the age of the complaint into a High / Medium / Low label."),
-    ("5 · Summarization", "📝", "Generative summarization compiles weekly digests in the paper's style — e.g. “Ward 5 recorded 42 road complaints this week, predominantly potholes. Priority: High.” (template engine, or GPT-4o with an API key)."),
-    ("6 · Reports & Dashboard", "📊", "Weekly digests are exportable as PDF and Excel, and the officer dashboard visualizes category mix, priority mix, daily inflow, ward hotspots and the latest AI digest for decision support."),
+    ("1 · Multi-Channel Campus Intake", "📡", "Grievances are collected from the Student Web Portal, PCU Mobile App, Hostel Warden Desks, QR code scans at classroom doors, and Campus Helpdesks."),
+    ("2 · Preprocessing & Duplicate Detection", "🧹", "Text cleaning normalizes room numbers and equipment terms; lemmatization extracts root concepts; duplicate complaints from multiple students in the same classroom or hostel are flagged; Isolation Forest screens for anomalies/spam."),
+    ("3 · Campus Category Classification", "🏷️", "Supervised NLP classifier routes each grievance into one of 6 university service categories: Classroom & Lab Infrastructure, Hostel & Residential Life, Electricity & Maintenance, Water Supply & Washrooms, Canteen & Food Quality, and Campus Safety & Parking."),
+    ("4 · Academic & Safety Prioritization", "🚨", "Scoring engine blends urgency terms (exam disruptions, lab hazards, food poisoning, fire/electric shocks), facility risk, student distress, building frequency, and pending duration into High / Medium / Low priority."),
+    ("5 · Executive Summarization & Alerts", "📝", "Automated digests summarize weekly issues for Campus Director, Deans, and Chief Wardens (e.g., 'Block A recorded 24 grievances this week, predominantly classroom projectors...'). Supports offline templates or OpenAI LLM."),
+    ("6 · GIS Campus Micro-Mapping & Hotspots", "🗺️", "Interactive Leaflet GIS map plots live clusters centered on PCU Campus (18.7490° N, 73.6069° E) with micro-offsets for basement parking under each building, floors, labs, hostels, and canteens."),
   ] %}
   <div class="card hoverable">
     <div style="display:flex; gap:14px; align-items:flex-start">
@@ -46,12 +46,12 @@
 </div>
 
 <div class="card" style="margin-top:18px">
-  <h2 class="card-title">Classification categories (Table 1 of the base paper)</h2>
+  <h2 class="card-title">PCU Campus Service Categories</h2>
   <div class="tag-cloud">
     {% for c in categories %}<span class="tag">{{ c }}</span>{% endfor %}
   </div>
   <p class="muted" style="font-size:12.5px; margin-top:12px">
-    Set <code class="mono">OPENAI_API_KEY</code> to enable LLM digests, or <code class="mono">USE_TRANSFORMERS=1</code> to swap the classifier for zero-shot DistilBERT.
+    Campus Blocks: <b>Block A, Block B, Block C, Admin Block, Girls Hostel, Boys Hostel 1, Central Canteen, Cafeteria 2, Sports Ground & Lawns, Main Gate & Security</b>.
   </p>
 </div>
 

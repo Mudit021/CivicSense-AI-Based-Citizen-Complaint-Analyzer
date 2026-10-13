@@ -4,40 +4,101 @@
 
 <div class="page-head">
   <div>
-    <h1 class="page-title">Register a citizen complaint</h1>
-    <p class="page-sub">Simulates intake from any channel (mobile app, web portal, email, call center). The AI pipeline classifies, prioritises and de-duplicates instantly.</p>
+    <h1 class="page-title">Register a Campus Grievance · PCU</h1>
+    <p class="page-sub">Report issues anywhere across Pimpri Chinchwad University (PCU), Sate, Maval. Specify block, floor, room number, or upload photo evidence. The AI pipeline classifies, checks duplicates, verifies image authenticity, and prioritises instantly.</p>
   </div>
 </div>
 
 <div class="grid grid-2">
   <div class="card">
-    <form method="post">
+    <form method="post" enctype="multipart/form-data" id="complaint-form">
+      <input type="hidden" id="user_lat" name="user_lat" value="">
+      <input type="hidden" id="user_lon" name="user_lon" value="">
+
       <div class="field">
         <label for="title">Title</label>
-        <input type="text" id="title" name="title" placeholder="e.g. Large pothole near school in Ward 7">
+        <input type="text" id="title" name="title" placeholder="e.g. Projector broken in Block A Room 304, or Basement parking lights out">
       </div>
-      <div class="field">
-        <label for="description">Describe the problem *</label>
-        <textarea id="description" name="description" placeholder="Write the complaint exactly as a citizen would…"></textarea>
-      </div>
+      
       <div class="grid grid-2" style="gap: 12px">
         <div class="field">
-          <label for="ward">Ward</label>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label for="ward" style="margin-bottom:0;">Campus Block / Location *</label>
+            <button type="button" id="btn-detect-loc" class="btn-geo" onclick="detectUserLocation()" title="Auto-detect current PCU building using GPS">
+              <span>📍</span> <span id="loc-btn-text">Auto-Detect Location</span>
+            </button>
+          </div>
           <select id="ward" name="ward">
-            {% for w in wards %}<option value="{{ w }}">{{ w }}</option>{% endfor %}
+            {% for b in wards %}<option value="{{ b }}">{{ b }}</option>{% endfor %}
           </select>
+          <div id="loc-feedback" class="loc-feedback-badge" style="display:none;"></div>
         </div>
         <div class="field">
-          <label for="source">Source channel</label>
-          <select id="source" name="source">
-            {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+          <label for="floor">Floor / Level</label>
+          <select id="floor" name="floor">
+            {% for f in floors %}<option value="{{ f }}">{{ f }}</option>{% endfor %}
           </select>
         </div>
       </div>
-      <button class="btn" type="submit">🤖 Analyze with AI</button>
-      <p class="muted" style="font-size: 12px; margin-top: 12px">
-        Try: <em>"Sewage overflowing near the market area"</em> or <em>"Streetlight not working for the past three days"</em>
-      </p>
+
+      <div class="grid grid-2" style="gap: 12px">
+        <div class="field">
+          <label for="room_number">Room / Lab / Facility No.</label>
+          <input type="text" id="room_number" name="room_number" placeholder="e.g. Room 204, CS Lab 2, Counter 1">
+        </div>
+        <div class="field">
+          <label for="sub_location">Sub-Location / Area</label>
+          <input type="text" id="sub_location" name="sub_location" placeholder="e.g. Underground Parking, Washroom Wing, Mess">
+        </div>
+      </div>
+
+      <!-- Image Upload Dropzone -->
+      <div class="field">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="margin-bottom:0;">Photo Evidence (Image Analysis & Verification)</label>
+          <span class="muted" style="font-size:11px;">JPG, PNG, WEBP, GIF · Max 10MB</span>
+        </div>
+        
+        <div id="drop-zone" class="upload-dropzone" onclick="document.getElementById('image').click()">
+          <input type="file" id="image" name="image" accept="image/*" style="display: none;" onchange="handleFileSelect(this)">
+          
+          <div id="upload-placeholder">
+            <div class="upload-icon">📸</div>
+            <div class="upload-title">Drop photo evidence here, or <span style="color:var(--brand-2); text-decoration:underline;">browse files</span></div>
+            <div class="upload-hint">Computer Vision automatically analyzes edge sharpness, scene lighting, defect tags & camera EXIF GPS</div>
+          </div>
+          
+          <div id="upload-preview-wrap" class="upload-preview-wrap" style="display: none;" onclick="event.stopPropagation()">
+            <img id="upload-preview-img" src="" alt="Preview">
+            <div class="preview-info">
+              <div id="preview-filename" class="preview-name"></div>
+              <div id="preview-size" class="preview-meta"></div>
+              <button type="button" class="btn-remove-img" onclick="removeSelectedImage(event)">✕ Remove</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="description">Describe the problem in detail *</label>
+        <textarea id="description" name="description" rows="4" placeholder="Describe the facility issue, equipment fault, or student concern..."></textarea>
+      </div>
+
+      <div class="field">
+        <label for="source">Reporting Channel</label>
+        <select id="source" name="source">
+          {% for s in sources %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+
+      <button class="btn" type="submit">🤖 Analyze with AI Pipeline</button>
+      <div class="muted" style="font-size: 12px; margin-top: 14px; line-height: 1.5;">
+        <b>Quick Examples:</b><br/>
+        • <em>"Projector screen is flickering and HDMI cable damaged in Block B Room 102"</em><br/>
+        • <em>"Hot water geyser not working in Girls Hostel 3rd floor bathroom"</em><br/>
+        • <em>"Underground basement parking under Block A has zero lights and is flooded"</em><br/>
+        • <em>"Raw undercooked chicken and stale rice served at Central Canteen"</em>
+      </div>
     </form>
   </div>
 
@@ -48,12 +109,12 @@
 
     {% if result %}
     <div class="card result-card">
-      <h2 class="card-title">AI analysis · complaint #{{ saved }}</h2>
+      <h2 class="card-title">AI Analysis · Grievance #{{ saved }}</h2>
       <div class="result-grid">
         <div class="result-tile">
           <div class="k">Category</div>
-          <div class="v">{{ result.category }}</div>
-          <div class="conf-bar"><div class="conf-fill" style="width: {{ (result.confidence * 100) | round(1) }}%"></div></div>
+          <div class="v" style="font-size: 14px;">{{ result.category }}</div>
+          <div class="conf-bar"><div class="conf-fill" data-fill="{{ (result.confidence * 100) | round(1) }}"></div></div>
           <div class="muted" style="font-size: 11.5px; margin-top: 6px">confidence {{ (result.confidence * 100) | round(1) }}%</div>
         </div>
         <div class="result-tile">
@@ -62,33 +123,250 @@
           <div class="muted" style="font-size: 11.5px; margin-top: 8px">urgency score {{ result.score }}</div>
         </div>
         <div class="result-tile">
-          <div class="k">Duplicates</div>
-          <div class="v">{% if result.is_duplicate %}⚠️ Found{% else %}✅ None{% endif %}</div>
+          <div class="k">Duplicate Check</div>
+          <div class="v">{% if result.is_duplicate %}⚠️ Duplicate{% else %}✅ Original{% endif %}</div>
           <div class="muted" style="font-size: 11.5px; margin-top: 8px">
-            {% if result.is_duplicate %}Matches #{{ result.duplicate_of }} ({{ (result.duplicate_ratio * 100) | round(0) }}% similar){% else %}No similar complaint detected{% endif %}
+            {% if result.is_duplicate %}Matches existing #{{ result.duplicate_of }} ({{ (result.duplicate_ratio * 100) | round(0) }}% similar){% else %}No similar complaint detected{% endif %}
+          </div>
+        </div>
+        <div class="result-tile">
+          <div class="k">Spam & Anomaly</div>
+          <div class="v">{% if result.is_suspicious %}<span style="color:#7950f2; font-weight:700;">⚠️ Flagged</span>{% else %}<span style="color:#30a46c; font-weight:700;">✅ Verified</span>{% endif %}</div>
+          <div class="muted" style="font-size: 11.5px; margin-top: 8px">
+            {% if result.is_suspicious %}Score: {{ result.suspicion_score }} · {{ result.suspicion_reason or 'Anomaly detected' }}{% else %}Normal grievance (Score: {{ result.suspicion_score }}){% endif %}
           </div>
         </div>
       </div>
+
+      <div style="margin: 12px 0 6px; font-size: 12px; color: var(--muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <span>📍 <b>PCU Campus GIS:</b> {{ result.lat }}, {{ result.lon }} ({{ result.geo_source | replace('_', ' ') | title }})</span>
+        <span><b>Location:</b> {{ result.ward }} {% if result.floor %}· {{ result.floor }}{% endif %} {% if result.room_number %}· {{ result.room_number }}{% endif %}</span>
+      </div>
+
+      <!-- Image Verification & Computer Vision Section -->
+      {% if result.image_result and result.image_result.has_image %}
+        {% if result.image_result.is_valid %}
+        <div class="img-analysis-card">
+          <div class="img-analysis-header">
+            <div style="font-weight: 700; font-size: 13px; color: var(--brand);">
+              📷 Visual Evidence Verification
+            </div>
+            <span class="badge {% if 'Verified' in result.image_result.authenticity %}badge-resolved{% else %}badge-medium{% endif %}">
+              {{ result.image_result.authenticity }}
+            </span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 140px 1fr; gap: 14px; align-items: start;">
+            <div>
+              <img src="{{ result.image_result.image_url }}" alt="Evidence" class="img-preview-full" onclick="openLightbox(this.src)" title="Click to view full image">
+              <div class="muted" style="font-size: 11px; text-align: center;">{{ result.image_result.dimensions }} · {{ result.image_result.file_size_kb }} KB</div>
+            </div>
+            <div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div style="background:#fff; padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+                  <div class="muted" style="font-size:10.5px; font-weight:700; text-transform:uppercase;">Sharpness / Clarity</div>
+                  <div style="font-weight:700; font-size:13px; color:var(--ink); margin-top:2px;">{{ result.image_result.sharpness_label }}</div>
+                  <div class="muted" style="font-size:10.5px;">Variance: {{ result.image_result.sharpness_score }}</div>
+                </div>
+                <div style="background:#fff; padding:8px 10px; border-radius:8px; border:1px solid var(--line);">
+                  <div class="muted" style="font-size:10.5px; font-weight:700; text-transform:uppercase;">Scene Lighting</div>
+                  <div style="font-weight:700; font-size:13px; color:var(--ink); margin-top:2px;">{{ result.image_result.lighting_label }}</div>
+                  <div class="muted" style="font-size:10.5px;">Mean: {{ result.image_result.brightness_mean }} / 255</div>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 8px;">
+                <div class="muted" style="font-size:11px; font-weight:700; margin-bottom:4px;">DEFECT & ENVIRONMENT SIGNATURES:</div>
+                <div>
+                  {% for tag in result.image_result.defect_tags %}
+                  <span class="img-tag">{{ tag }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div style="font-size: 11.5px; color: var(--muted); background: #fff; padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line);">
+                <b>Cross-Modal Consistency:</b> {{ (result.image_result.visual_consistency_score * 100) | round(0) }}% correlation between photo and complaint context.
+                {% if result.image_result.exif.has_gps %}
+                <div style="margin-top:3px; color:#1971c2;">📍 <b>EXIF GPS:</b> {{ result.image_result.exif.lat }}, {{ result.image_result.exif.lon }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="alert alert-error" style="margin-top:12px;">
+          ⚠️ Photo Upload Notice: {{ result.image_result.error }}
+        </div>
+        {% endif %}
+      {% endif %}
+
       <ul class="explanation">
         {% for line in result.explanation %}<li>{{ line }}</li>{% endfor %}
       </ul>
       <div class="table-actions">
-        <a class="btn secondary small" href="{{ url_for('complaints', category=result.category) }}">View {{ result.category }} complaints →</a>
+        <a class="btn secondary small" href="{{ url_for('complaints', category=result.category) }}">View all {{ result.category }} grievances →</a>
       </div>
     </div>
     {% else %}
     <div class="card" style="background: linear-gradient(160deg, #f7f9ff, #eef1fb); border-style: dashed;">
-      <h2 class="card-title">What happens next</h2>
+      <h2 class="card-title">PCU Intelligent Triage & Vision Workflow</h2>
       <ol style="padding-left: 18px; font-size: 13.5px; color: #2b3245; line-height: 1.9">
-        <li><b>Preprocessing</b> — cleaning, tokenization, lemmatization, stop-word removal</li>
-        <li><b>Duplicate check</b> — compared against recent complaints</li>
-        <li><b>Classification</b> — {{ categories | length }} service categories (NLP model)</li>
-        <li><b>Prioritization</b> — urgency scoring → High / Medium / Low</li>
-        <li>Stored to the central database for the dashboard &amp; weekly digest</li>
+        <li><b>Text Preprocessing & Deduplication</b> — cleans descriptions and catches duplicate complaints filed for the same classroom or hostel room.</li>
+        <li><b>Spam & Anomaly Detection</b> — flags prank or repetitive bot submissions.</li>
+        <li><b>Computer Vision Verification</b> — analyzes uploaded photos for edge sharpness, scene lighting, and defect signatures.</li>
+        <li><b>Campus Category Classifier</b> — categorizes into Classroom/Lab, Hostel, Electricity, Washrooms, Canteen, or Safety/Parking.</li>
+        <li><b>Multi-Factor Urgency Scoring</b> — weights exam hazards, safety risks, and location frequency.</li>
+        <li><b>Campus GIS Micro-Mapping</b> — automatically pins issue coordinates on the PCU Sate Campus map.</li>
       </ol>
     </div>
     {% endif %}
   </div>
 </div>
+
+<!-- Lightbox Modal for Full Image View -->
+<div id="lightbox-modal" class="lightbox-modal" onclick="closeLightbox()">
+  <span class="lightbox-close">&times;</span>
+  <img id="lightbox-img" class="lightbox-content" src="" alt="Full Evidence" onclick="event.stopPropagation()">
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  document.querySelectorAll('[data-fill]').forEach(function(el) {
+    el.style.width = el.getAttribute('data-fill') + '%';
+  });
+
+  // Setup Drag & Drop listeners
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('image');
+
+  if (dropZone && fileInput) {
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dropZone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect(fileInput);
+      }
+    });
+  }
+});
+
+function handleFileSelect(input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+
+  const placeholder = document.getElementById('upload-placeholder');
+  const previewWrap = document.getElementById('upload-preview-wrap');
+  const previewImg = document.getElementById('upload-preview-img');
+  const previewName = document.getElementById('preview-filename');
+  const previewSize = document.getElementById('preview-size');
+
+  previewName.textContent = file.name;
+  previewSize.textContent = (file.size / 1024).toFixed(1) + ' KB · ' + file.type;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    previewImg.src = e.target.result;
+    placeholder.style.display = 'none';
+    previewWrap.style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeSelectedImage(e) {
+  if (e) e.stopPropagation();
+  const fileInput = document.getElementById('image');
+  if (fileInput) fileInput.value = '';
+  document.getElementById('upload-placeholder').style.display = 'block';
+  document.getElementById('upload-preview-wrap').style.display = 'none';
+  document.getElementById('upload-preview-img').src = '';
+}
+
+function detectUserLocation() {
+  const btn = document.getElementById('btn-detect-loc');
+  const btnText = document.getElementById('loc-btn-text');
+  const feedback = document.getElementById('loc-feedback');
+  const wardSelect = document.getElementById('ward');
+  const latInput = document.getElementById('user_lat');
+  const lonInput = document.getElementById('user_lon');
+
+  if (!navigator.geolocation) {
+    feedback.style.display = 'flex';
+    feedback.innerHTML = '⚠️ Geolocation is not supported by your browser.';
+    return;
+  }
+
+  btnText.textContent = 'Detecting GPS...';
+  feedback.style.display = 'flex';
+  feedback.innerHTML = '📡 Acquiring GPS coordinates and matching to PCU buildings...';
+
+  navigator.geolocation.getCurrentPosition(
+    function(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      latInput.value = lat;
+      lonInput.value = lon;
+
+      fetch('/api/detect-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: lat, lon: lon })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.nearest_block) {
+          wardSelect.value = data.nearest_block;
+          btnText.textContent = '✓ Location Detected';
+          btn.classList.add('active');
+
+          const campusTag = data.on_campus ? ' <span style="color:#30a46c; font-weight:700;">(On Campus)</span>' : ' <span style="color:#f5a524;">(Nearby PCU)</span>';
+          feedback.innerHTML = `📍 Auto-selected <b>${data.nearest_block}</b> (${data.building_name}) · ${data.distance_meters}m away${campusTag}`;
+        }
+      })
+      .catch(err => {
+        feedback.innerHTML = `📍 GPS Coordinates: ${lat.toFixed(4)}, ${lon.toFixed(4)} (Ready for submission)`;
+        btnText.textContent = '✓ GPS Captured';
+      });
+    },
+    function(error) {
+      btnText.textContent = 'Auto-Detect Location';
+      let msg = 'Unable to retrieve location.';
+      if (error.code === error.PERMISSION_DENIED) {
+        msg = 'Location permission denied by user. Select building manually.';
+      } else if (error.code === error.TIMEOUT) {
+        msg = 'Location request timed out. Select building manually.';
+      }
+      feedback.style.display = 'flex';
+      feedback.innerHTML = `⚠️ ${msg}`;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+  );
+}
+
+function openLightbox(src) {
+  const modal = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  modal.classList.add('active');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox-modal').classList.remove('active');
+}
+</script>
 
 {% endblock %}

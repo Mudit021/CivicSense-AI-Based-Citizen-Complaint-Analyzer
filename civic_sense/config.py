@@ -13,20 +13,83 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 MODELS_DIR = BASE_DIR / "models"
 REPORTS_DIR = DATA_DIR / "reports"
+UPLOADS_DIR = BASE_DIR / "static" / "uploads"
 DB_PATH = DATA_DIR / "civicsense.db"
 CLASSIFIER_PATH = MODELS_DIR / "classifier.joblib"
 METRICS_PATH = MODELS_DIR / "metrics.json"
 
-for _p in (DATA_DIR, MODELS_DIR, REPORTS_DIR):
+for _p in (DATA_DIR, MODELS_DIR, REPORTS_DIR, UPLOADS_DIR):
     _p.mkdir(parents=True, exist_ok=True)
 
+ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
+
 # ---------------------------------------------------------------------------
-# Domain constants (from the base paper, Table 1)
+# PCU Campus Domain Constants (Pimpri Chinchwad University, Sate, Maval)
 # ---------------------------------------------------------------------------
-CATEGORIES = ["Roads", "Electricity", "Water Supply", "Waste Management", "Public Safety"]
+UNIVERSITY_NAME = "Pimpri Chinchwad University (PCU)"
+CAMPUS_LOCATION = "Sate, Maval, Pune - 412106"
+PCU_COORDINATES = {"lat": 18.749034, "lon": 73.606889}
+
+CATEGORIES = [
+    "Classroom & Lab Infrastructure",
+    "Hostel & Residential Life",
+    "Electricity & Maintenance",
+    "Water Supply & Washrooms",
+    "Canteen & Food Quality",
+    "Campus Safety & Parking",
+]
 PRIORITIES = ["High", "Medium", "Low"]
-WARDS = [f"Ward {i}" for i in range(1, 11)]
-SOURCES = ["Mobile App", "Web Portal", "Email", "Call Center", "Social Media"]
+
+CAMPUS_BLOCKS = [
+    "A Block",
+    "B Block",
+    "C Block",
+    "Admin Block",
+    "Girls Hostel",
+    "Boys Hostel",
+    "Central Canteen",
+    "Cafeteria",
+    "Lawn 1",
+    "Lawn 2",
+    "Sports Lawn",
+    "Main Gate 1 (Entry)",
+    "Main Gate 2 (Exit)",
+]
+
+# Aliases for backward compatibility with existing records
+LEGACY_BLOCK_ALIASES = {
+    "Block A": "A Block",
+    "Block B": "B Block",
+    "Block C": "C Block",
+    "Boys Hostel 1": "Boys Hostel",
+    "Cafeteria 2": "Cafeteria",
+    "Sports Ground & Lawns": "Sports Lawn",
+    "Main Gate & Security": "Main Gate 1 (Entry)",
+    "Main Gate": "Main Gate 1 (Entry)",
+    "Gate 1": "Main Gate 1 (Entry)",
+    "Gate 2": "Main Gate 2 (Exit)",
+    "main gate 1(entry)": "Main Gate 1 (Entry)",
+    "main gate 2(exit)": "Main Gate 2 (Exit)",
+    "main gate 1 (entry)": "Main Gate 1 (Entry)",
+    "main gate 2 (exit)": "Main Gate 2 (Exit)",
+}
+
+# Retain WARDS as superset for backward compatibility across database and queries
+WARDS = list(dict.fromkeys(CAMPUS_BLOCKS + list(LEGACY_BLOCK_ALIASES.keys())))
+
+
+FLOORS = [
+    "Basement / Parking",
+    "Ground Floor",
+    "1st Floor",
+    "2nd Floor",
+    "3rd Floor",
+    "4th Floor",
+    "5th Floor",
+    "Terrace",
+]
+
+SOURCES = ["Student Portal", "PCU Mobile App", "Hostel Desk", "Campus Helpdesk", "QR Code Scanner"]
 STATUSES = ["Open", "In Progress", "Resolved"]
 
 # ---------------------------------------------------------------------------

@@ -50,7 +50,7 @@ def extractive_summary(text: str, n: int = 2) -> str:
 # Weekly digest
 # ---------------------------------------------------------------------------
 def _ward_statements(rows) -> list:
-    """Per-ward narrative lines in the paper's digest style."""
+    """Per-block narrative lines in the campus digest style."""
     ward_cat = Counter((r["ward"], r["category"]) for r in rows)
     ward_total = Counter(r["ward"] for r in rows)
     ward_prio = Counter((r["ward"], r["priority"]) for r in rows)
@@ -61,9 +61,9 @@ def _ward_statements(rows) -> list:
         high = ward_prio.get((ward, "High"), 0)
         pct = round(high / max(1, total) * 100)
         out.append(
-            f"{ward} recorded {total} complaints this week, predominantly "
+            f"{ward} recorded {total} grievances this week, predominantly "
             f"{top_cat.lower()} ({top_n} reports). {high} of them ({pct}%) were "
-            f"flagged High Priority and need immediate attention."
+            f"flagged High Priority requiring urgent campus facility attention."
         )
     return out
 
@@ -75,12 +75,12 @@ def _overview(rows, period_label: str) -> str:
     top_cat = max(CATEGORIES, key=lambda c: by_cat.get(c, 0))
     top_words = _top_terms(rows, 6)
     return (
-        f"During {period_label}, {total} citizen complaints were received and "
-        f"automatically processed. The dominant category was {top_cat} "
+        f"During {period_label}, {total} campus grievances were submitted by PCU students and staff "
+        f"and automatically processed. The dominant category was {top_cat} "
         f"({by_cat.get(top_cat, 0)} reports), followed by {_fmt_cats(by_cat, top_cat)}. "
         f"Priority-wise, {by_prio.get('High', 0)} complaints were High, "
         f"{by_prio.get('Medium', 0)} Medium and {by_prio.get('Low', 0)} Low. "
-        f"Recurring themes include: {', '.join(top_words)}."
+        f"Key recurring issues on campus include: {', '.join(top_words)}."
     )
 
 
@@ -92,9 +92,9 @@ def _recommendations(rows) -> str:
     hotspot = ward_total.most_common(1)[0][0]
     cat = max(CATEGORIES, key=lambda c: ward_cat.get((hotspot, c), 0))
     return (
-        f"Resource allocation suggestion: prioritise {hotspot}, the current "
-        f"hotspot for {cat.lower()} issues, and schedule preventive maintenance "
-        f"based on the recurring patterns above."
+        f"Campus Resource Allocation: Prioritise {hotspot}, the current "
+        f"primary hotspot for {cat.lower()} concerns, and coordinate maintenance crews "
+        f"(electricians, plumbers, and wardens) for immediate inspection."
     )
 
 
@@ -118,7 +118,7 @@ def _template_digest(rows, period_label: str) -> str:
     parts = [
         _overview(rows, period_label),
         "",
-        "Ward-level highlights:",
+        "Campus Block & Facility Highlights:",
         *[f"  - {s}" for s in _ward_statements(rows)],
         "",
         _recommendations(rows),
@@ -129,10 +129,10 @@ def _template_digest(rows, period_label: str) -> str:
 def _llm_digest(rows, period_label: str, stats_summary: str) -> str:
     """Optional generative-AI digest via the OpenAI-compatible API."""
     prompt = (
-        "You are an urban governance analyst. Write a concise weekly civic "
-        "complaint digest for municipal officers based only on the statistics "
-        "provided. Use clear ward-level highlights and end with a resource "
-        "allocation recommendation. Keep it under 180 words.\n\n"
+        "You are a university campus operations and facility management analyst at Pimpri Chinchwad University (PCU). "
+        "Write a concise weekly campus grievance digest for the Campus Director, Deans, and Wardens based only on the "
+        "statistics provided. Use clear block/facility-level highlights and end with actionable facility maintenance recommendations. "
+        "Keep it under 180 words.\n\n"
         f"Period: {period_label}\n{stats_summary}"
     )
     body = json.dumps({
@@ -165,7 +165,7 @@ def generate_weekly_report(days: int = REPORT_WINDOW_DAYS) -> dict:
     by_ward = Counter(r["ward"] for r in rows)
     stats_summary = (
         f"Total: {len(rows)} | Categories: {dict(by_cat)} | "
-        f"Priorities: {dict(by_prio)} | Top wards: "
+        f"Priorities: {dict(by_prio)} | Top blocks: "
         f"{dict(by_ward.most_common(5))}"
     )
 
@@ -181,7 +181,7 @@ def generate_weekly_report(days: int = REPORT_WINDOW_DAYS) -> dict:
     return {
         "period_start": start_s,
         "period_end": end_s,
-        "title": f"Weekly Civic Complaint Digest — {period_label}",
+        "title": f"PCU Campus Grievance Digest — {period_label}",
         "summary": summary,
         "stats": {
             "total": len(rows),

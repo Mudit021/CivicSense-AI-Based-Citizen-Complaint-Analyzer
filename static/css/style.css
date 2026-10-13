@@ -104,13 +104,20 @@ body {
 .card-title .hint { text-transform: none; font-weight: 500; letter-spacing: 0; color: #99a1b5; }
 
 .grid { display: grid; gap: 18px; }
+.grid-5 { grid-template-columns: repeat(5, 1fr); }
 .grid-4 { grid-template-columns: repeat(4, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-2 { grid-template-columns: 1fr 1fr; }
+@media (max-width: 1300px) {
+  .grid-5 { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 1100px) {
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: 1fr; }
   .grid-2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .grid-5 { grid-template-columns: 1fr 1fr; }
 }
 
 /* ---------- KPI cards ---------- */
@@ -123,6 +130,8 @@ body {
 .kpi-icon.green { background: #e8f7f0; color: var(--low); }
 .kpi-icon.red { background: #fdecec; color: var(--high); }
 .kpi-icon.amber { background: #fef4e2; color: #b47a05; }
+.kpi-icon.purple { background: #f3e8ff; color: #7950f2; }
+.badge-suspicious { background: #f3e8ff; color: #7950f2; font-weight: 700; border: 1px solid #d0bfff; }
 .kpi-value { font-size: 26px; font-weight: 800; line-height: 1.1; letter-spacing: -.5px; }
 .kpi-label { font-size: 12px; color: var(--muted); font-weight: 500; }
 
@@ -272,3 +281,133 @@ a.link:hover { text-decoration: underline; }
 .tag:hover { transform: translateY(-2px); }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; font-size: 13.5px; }
 .kv b { color: var(--muted); font-weight: 600; }
+
+/* ---------- Image Upload & Auto-Location ---------- */
+.btn-geo {
+  background: #eef1fb; color: var(--brand-2); border: 1px solid #d2d8f0;
+  padding: 4px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  transition: all .15s ease;
+}
+.btn-geo:hover { background: var(--brand-2); color: #fff; border-color: var(--brand-2); }
+.btn-geo.active { background: #e8f7f0; color: var(--low); border-color: #bbf0d8; }
+.loc-feedback-badge {
+  font-size: 11.5px; color: #1971c2; background: #e8f1fd; padding: 6px 10px;
+  border-radius: 8px; margin-top: 6px; border: 1px solid #cce1fd;
+  display: flex; align-items: center; gap: 6px;
+}
+.upload-dropzone {
+  border: 2px dashed #ccd3e8; border-radius: 12px; background: #fbfcfe;
+  cursor: pointer; transition: all .18s ease; text-align: center;
+  padding: 18px 14px; position: relative;
+}
+.upload-dropzone:hover, .upload-dropzone.dragover {
+  border-color: var(--brand-2); background: #f4f6fc;
+}
+.upload-icon { font-size: 28px; line-height: 1; margin-bottom: 6px; }
+.upload-title { font-weight: 650; font-size: 13px; color: var(--ink); }
+.upload-hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+.upload-preview-wrap {
+  display: flex; align-items: center; gap: 12px; background: #fff;
+  padding: 10px 14px; border-radius: 10px; border: 1px solid var(--line);
+  text-align: left;
+}
+.upload-preview-wrap img {
+  width: 64px; height: 64px; object-fit: cover; border-radius: 8px;
+  border: 1px solid var(--line); flex-shrink: 0;
+}
+.preview-info { flex: 1; min-width: 0; }
+.preview-name { font-weight: 650; font-size: 12.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.btn-remove-img {
+  background: #fdecec; color: var(--high); border: 1px solid #fedcdc;
+  padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  cursor: pointer; margin-top: 5px; display: inline-block;
+}
+.btn-remove-img:hover { background: var(--high); color: #fff; }
+
+/* Image Analysis Card */
+.img-analysis-card {
+  background: #f7f9ff; border: 1px solid #dce4f7; border-radius: 12px;
+  padding: 14px 16px; margin-top: 14px;
+}
+.img-analysis-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 8px;
+}
+.img-preview-full {
+  width: 100%; max-height: 220px; object-fit: cover; border-radius: 10px;
+  border: 1px solid var(--line); margin-bottom: 12px; cursor: pointer;
+}
+.img-tag {
+  display: inline-block; background: #eef1fb; color: var(--brand-2);
+  border: 1px solid #dbe2f9; font-size: 11px; font-weight: 650;
+  padding: 2px 7px; border-radius: 6px; margin-right: 4px; margin-bottom: 4px;
+}
+.thumb-modal-link {
+  display: inline-flex; align-items: center; gap: 4px; cursor: pointer;
+}
+.thumb-modal-link img {
+  width: 32px; height: 32px; object-fit: cover; border-radius: 6px;
+  border: 1px solid var(--line); transition: transform .15s ease;
+}
+.thumb-modal-link:hover img { transform: scale(1.15); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+
+/* Modal lightbox */
+.lightbox-modal {
+  display: none; position: fixed; z-index: 9999; left: 0; top: 0;
+  width: 100%; height: 100%; background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(4px); justify-content: center; align-items: center;
+  padding: 20px;
+}
+.lightbox-modal.active { display: flex; }
+.lightbox-content {
+  max-width: 90vw; max-height: 85vh; border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.2);
+}
+.lightbox-close {
+  position: absolute; top: 20px; right: 28px; color: #fff;
+  font-size: 32px; font-weight: bold; cursor: pointer;
+}
+
+/* ---------- Map Layer Controls & Building Badges ---------- */
+.map-layer-btn {
+  transition: all .15s ease;
+  font-weight: 600;
+  border-radius: 8px;
+}
+.map-layer-btn.active {
+  background: var(--brand-2) !important;
+  color: #fff !important;
+  border-color: var(--brand-2) !important;
+  box-shadow: 0 2px 8px rgba(59, 91, 219, 0.35);
+}
+.campus-building-label {
+  background: rgba(20, 26, 46, 0.88);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  pointer-events: auto;
+  cursor: pointer;
+}
+.campus-building-label .b-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.campus-building-label:hover {
+  background: var(--brand-2);
+  transform: translateY(-1px);
+}
+
+

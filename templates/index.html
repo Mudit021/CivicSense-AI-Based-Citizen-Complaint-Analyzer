@@ -14,27 +14,27 @@
 
 <div class="page-head">
   <div>
-    <h1 class="page-title">Civic Command Dashboard</h1>
-    <p class="page-sub">Real-time complaint intelligence for municipal officers · Model: {{ metrics.get('model', 'TF-IDF + LinearSVC') }} · Accuracy {{ (metrics.get('accuracy', 0) * 100) | round(1) }}%</p>
+    <h1 class="page-title">PCU Campus Grievance Dashboard</h1>
+    <p class="page-sub">Real-time facility intelligence for Pimpri Chinchwad University (PCU), Sate, Maval · Model: {{ metrics.get('model', 'TF-IDF + LinearSVC') }} · Accuracy {{ (metrics.get('accuracy', 0) * 100) | round(1) }}%</p>
   </div>
   <form method="post" action="{{ url_for('generate_report') }}">
-    <button class="btn green" type="submit">⚡ Generate weekly report</button>
+    <button class="btn green" type="submit">⚡ Generate Campus Digest</button>
   </form>
 </div>
 
 {% if seeded %}
-<div class="alert alert-info">Demo dataset seeded with <b>{{ seeded }}</b> sample complaints, processed through the live AI pipeline.</div>
+<div class="alert alert-info">PCU campus dataset loaded with <b>{{ seeded }}</b> student complaints across academic blocks, hostels, and canteens.</div>
 {% endif %}
 
 <!-- KPI row -->
-<div class="grid grid-4">
+<div class="grid grid-5">
   <div class="card hoverable"><div class="kpi">
     <div class="kpi-icon">📥</div>
-    <div><div class="kpi-value">{{ stats.total }}</div><div class="kpi-label">Total complaints</div></div>
+    <div><div class="kpi-value">{{ stats.total }}</div><div class="kpi-label">Total Grievances</div></div>
   </div></div>
   <div class="card hoverable"><div class="kpi">
     <div class="kpi-icon red">🚨</div>
-    <div><div class="kpi-value">{{ stats.by_priority.High }}</div><div class="kpi-label">High priority</div></div>
+    <div><div class="kpi-value">{{ stats.by_priority.High }}</div><div class="kpi-label">High Priority</div></div>
   </div></div>
   <div class="card hoverable"><div class="kpi">
     <div class="kpi-icon green">✅</div>
@@ -42,14 +42,18 @@
   </div></div>
   <div class="card hoverable"><div class="kpi">
     <div class="kpi-icon amber">🔁</div>
-    <div><div class="kpi-value">{{ stats.duplicates }}</div><div class="kpi-label">Duplicates detected</div></div>
+    <div><div class="kpi-value">{{ stats.duplicates }}</div><div class="kpi-label">Duplicates Caught</div></div>
+  </div></div>
+  <div class="card hoverable"><div class="kpi">
+    <div class="kpi-icon purple">🛡️</div>
+    <div><div class="kpi-value">{{ stats.get('suspicious', 0) }}</div><div class="kpi-label">Spam / Anomalies</div></div>
   </div></div>
 </div>
 
 <!-- Digest hero -->
 {% if latest_digest %}
 <div class="digest" style="margin-top: 18px;">
-  <span class="chip">✦ AI-Generated Weekly Digest</span>
+  <span class="chip">✦ AI-Generated Weekly Campus Digest</span>
   <h3>{{ reports[0].title }}</h3>
   <p>{{ latest_digest }}</p>
   <div class="meta">{{ reports[0].created_at | pretty_date }} · <a class="link" style="color:#9fb3ff" href="{{ url_for('report_view', rid=reports[0].id) }}">Read full digest →</a></div>
@@ -59,11 +63,11 @@
 <!-- Charts row -->
 <div class="grid grid-3" style="margin-top: 18px;">
   <div class="card">
-    <h2 class="card-title">Complaints by category</h2>
+    <h2 class="card-title">Grievances by Category</h2>
     {% for c in categories %}
     <div class="hbar-row">
-      <div class="hbar-name">{{ c }}</div>
-      <div class="hbar-track"><div class="hbar-fill" style="width: {{ (stats.by_category[c] / max_cat * 100) | round(1) }}%"></div></div>
+      <div class="hbar-name" style="font-size:12px;">{{ c }}</div>
+      <div class="hbar-track"><div class="hbar-fill" data-fill="{{ (stats.by_category[c] / (max_cat or 1) * 100) | round(1) }}"></div></div>
       <div class="hbar-val">{{ stats.by_category[c] }}</div>
     </div>
     {% endfor %}
@@ -72,7 +76,7 @@
   <div class="card">
     <h2 class="card-title">Priority distribution</h2>
     <div class="donut-wrap">
-      <div class="donut" style="background: conic-gradient(#e5484d 0 {{ phc }}deg, #f5a524 {{ phc }}deg {{ phc + pmc }}deg, #30a46c {{ phc + pmc }}deg 360deg);">
+      <div class="donut" data-phc="{{ phc }}" data-pmc="{{ pmc }}">
         <div class="donut-inner"><div class="n">{{ ptotal }}</div><div class="l">total</div></div>
       </div>
       <div class="legend">
@@ -81,7 +85,7 @@
         <div class="legend-item"><span class="legend-swatch" style="background:#30a46c"></span> Low <span class="legend-n">{{ pl }} ({{ plp | round(0) }}%)</span></div>
       </div>
     </div>
-    <p class="muted" style="font-size:12px; margin-top:14px">Priorities are assigned by the AI engine from urgency keywords, category risk, emotion, ward frequency and age.</p>
+    <p class="muted" style="font-size:12px; margin-top:14px">Priorities are automatically scored from urgency keywords, safety risk, student distress, location frequency, and pending duration.</p>
   </div>
 
   <div class="card">
@@ -90,7 +94,7 @@
       {% for day, count in trend %}
       <div class="bar-col" title="{{ day }}: {{ count }}">
         <div class="bar-val">{{ count }}</div>
-        <div class="bar" style="height: {{ (count / max_trend * 100) | round(1) }}%"></div>
+        <div class="bar" data-height="{{ (count / (max_trend or 1) * 100) | round(1) }}"></div>
         <div class="bar-label">{{ day }}</div>
       </div>
       {% endfor %}
@@ -98,43 +102,114 @@
   </div>
 </div>
 
+<!-- Interactive GIS Campus Hotspot Map -->
 <div class="card" style="margin-top: 18px;">
-  <h2 class="card-title">Trending keywords <span class="hint">· recurring themes across all complaints (7d)</span></h2>
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px;">
+    <div>
+      <h2 class="card-title" style="margin-bottom: 4px;">🗺️ PCU Campus Hotspot & Incident Map <span class="hint">· Sate, Maval, Pune (18.7490° N, 73.6069° E)</span></h2>
+      <p class="muted" style="margin: 0; font-size: 12px;">Interactive GIS micro-map with live grievance density clusters, Google Terrain/Satellite imagery, and building-level pins.</p>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+      <button class="btn secondary small" onclick="resetMapCenter()" title="Recenter on PCU Sate Campus">🎯 Center PCU</button>
+      <button class="btn secondary small" id="btn-toggle-labels" onclick="toggleBuildingLabels()" title="Toggle building name tags on map">🏷️ Building Labels</button>
+    </div>
+  </div>
+
+  <!-- Map Toolbar: Layer Mode + Category Filter -->
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; padding: 10px 14px; background: #f7f9ff; border-radius: 10px; border: 1px solid var(--line);">
+    <!-- Base Map Mode Switcher (Google Maps Style) -->
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+      <span style="font-size: 11px; font-weight: 750; color: var(--brand); margin-right: 4px; letter-spacing: 0.3px;">MAP MODE:</span>
+      <button type="button" class="btn secondary small map-layer-btn active" id="btn-layer-terrain" onclick="setMapBaseLayer('terrain')">⛰️ GMaps Terrain</button>
+      <button type="button" class="btn secondary small map-layer-btn" id="btn-layer-satellite" onclick="setMapBaseLayer('satellite')">🛰️ Satellite (Hybrid)</button>
+      <button type="button" class="btn secondary small map-layer-btn" id="btn-layer-google" onclick="setMapBaseLayer('google')">🗺️ Google Streets</button>
+      <button type="button" class="btn secondary small map-layer-btn" id="btn-layer-osm" onclick="setMapBaseLayer('osm')">🌐 OpenStreetMap</button>
+    </div>
+
+    <!-- Category / Priority Filter Buttons -->
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+      <span style="font-size: 11px; font-weight: 750; color: var(--muted); margin-right: 4px; letter-spacing: 0.3px;">FILTER:</span>
+      <button class="btn secondary small map-filter-btn active" onclick="filterMap('all', this)">All</button>
+      <button class="btn secondary small map-filter-btn" onclick="filterMap('High', this)">🚨 High</button>
+      {% for c in categories %}
+      <button class="btn secondary small map-filter-btn" onclick="filterMap('{{ c }}', this)">{{ c.split('&')[0].strip() }}</button>
+      {% endfor %}
+      <button class="btn secondary small map-filter-btn" onclick="filterMap('suspicious', this)">🛡️ Spam</button>
+    </div>
+  </div>
+
+  <div id="hotspot-map" style="height: 500px; width: 100%; border-radius: 12px; border: 1px solid var(--line); z-index: 1;"></div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; font-size: 12px; color: var(--muted);">
+    <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+      <span style="font-weight: 700; color: var(--ink);">Building Intensity:</span>
+      <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#e5484d; margin-right:4px;"></span> Critical (≥25)</span>
+      <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#f5a524; margin-right:4px;"></span> High (≥15)</span>
+      <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#3b5bdb; margin-right:4px;"></span> Moderate (≥8)</span>
+      <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#30a46c; margin-right:4px;"></span> Low</span>
+    </div>
+    <div style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+      <span style="font-weight: 700; color: var(--ink);">Incident Pins:</span>
+      <span>🔴 High Priority</span>
+      <span>🟠 Medium Priority</span>
+      <span>🟢 Low Priority</span>
+      <span>🟣 Anomaly / Spam</span>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top: 18px;">
+  <h2 class="card-title">Trending keywords <span class="hint">· recurring issues across PCU campus (7d)</span></h2>
   <div class="tag-cloud">
     {% for kw in keywords %}<span class="tag">{{ kw }}</span>{% endfor %}
   </div>
   <p class="muted" style="font-size: 12px; margin: 14px 0 0">
-    These are the most frequent content words in citizen complaints — the paper's
-    <em>trend identification</em>: recurring potholes, constant garbage delays and
-    other patterns that raw complaint lists hide.
+    Frequent content keywords extracted across student reports — identifying systemic lab equipment failures, hostel geyser issues, and canteen food feedback.
   </p>
 </div>
 
 <div class="grid grid-2" style="margin-top: 18px;">
-  <!-- Ward hotspots -->
+  <!-- Campus building hotspots -->
   <div class="card">
-    <h2 class="card-title">Ward hotspots <span class="hint">· complaints by ward (30d)</span></h2>
-    {% for w in wards[:8] %}
+    <h2 class="card-title">Campus Location Hotspots <span class="hint">· complaints by block (30d)</span></h2>
+    {% for w in wards[:10] %}
     <div class="hbar-row">
       <div class="hbar-name">{{ w.ward }}</div>
-      <div class="hbar-track"><div class="hbar-fill" style="width: {{ (w.total / max_ward * 100) | round(1) }}%; background: linear-gradient(90deg, #e5484d, #f5a524)"></div></div>
+      <div class="hbar-track"><div class="hbar-fill" data-fill="{{ (w.total / (max_ward or 1) * 100) | round(1) }}" style="background: linear-gradient(90deg, #e5484d, #f5a524)"></div></div>
       <div class="hbar-val">{{ w.total }} <span class="muted" style="font-weight:500; font-size:11px">· {{ w.top_category }}</span></div>
     </div>
     {% endfor %}
-    <div class="table-actions"><a class="btn secondary small" href="{{ url_for('complaints') }}">View all complaints →</a></div>
+    <div class="table-actions"><a class="btn secondary small" href="{{ url_for('complaints') }}">View all campus grievances →</a></div>
   </div>
 
   <!-- Recent complaints -->
   <div class="card">
-    <h2 class="card-title">Latest complaints</h2>
+    <h2 class="card-title">Latest campus complaints</h2>
     <div class="table-wrap">
       <table class="data">
-        <thead><tr><th>Complaint</th><th>Ward</th><th>Priority</th><th>Time</th></tr></thead>
+        <thead><tr><th>Grievance</th><th>Location & Room</th><th>Priority</th><th>Time</th></tr></thead>
         <tbody>
           {% for c in recent %}
           <tr>
-            <td class="title-cell">{{ c.title }}</td>
-            <td>{{ c.ward }}</td>
+            <td class="title-cell">
+              <div style="display:flex; align-items:center; gap:8px;">
+                {% if c.image_url %}
+                <span class="thumb-modal-link" onclick="openLightbox('{{ c.image_url }}')" title="View photo evidence">
+                  <img src="{{ c.image_url }}" alt="Photo">
+                </span>
+                {% endif %}
+                <div>
+                  <div>{{ c.title }}</div>
+                  {% if c.sub_location %}<span class="muted" style="font-size:11px;">{{ c.sub_location }}</span>{% endif %}
+                </div>
+              </div>
+            </td>
+            <td>
+              <b>{{ c.ward }}</b>
+              {% if c.floor or c.room_number %}
+              <div class="muted" style="font-size:11px;">{{ c.floor }}{% if c.room_number %} · {{ c.room_number }}{% endif %}</div>
+              {% endif %}
+            </td>
             <td><span class="badge badge-{{ c.priority | lower }}">{{ c.priority }}</span></td>
             <td class="muted">{{ c.created_at | pretty_date }}</td>
           </tr>
@@ -145,4 +220,245 @@
   </div>
 </div>
 
+<script id="hotspot-data" type="application/json">{{ hotspots | tojson }}</script>
+<script id="incident-data" type="application/json">{{ map_incidents | tojson }}</script>
+
+<!-- Lightbox Modal for Photo Evidence -->
+<div id="lightbox-modal" class="lightbox-modal" onclick="closeLightbox()">
+  <span class="lightbox-close">&times;</span>
+  <img id="lightbox-img" class="lightbox-content" src="" alt="Full Evidence" onclick="event.stopPropagation()">
+</div>
+
+<script>
+function openLightbox(src) {
+  const modal = document.getElementById('lightbox-modal');
+  const img = document.getElementById('lightbox-img');
+  img.src = src;
+  modal.classList.add('active');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox-modal').classList.remove('active');
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+  // Apply data-driven styles dynamically
+  document.querySelectorAll('[data-fill]').forEach(function(el) {
+    el.style.width = el.getAttribute('data-fill') + '%';
+  });
+  document.querySelectorAll('[data-height]').forEach(function(el) {
+    el.style.height = el.getAttribute('data-height') + '%';
+  });
+  var donut = document.querySelector('.donut[data-phc]');
+  if (donut) {
+    var phc = parseFloat(donut.getAttribute('data-phc')) || 0;
+    var pmc = parseFloat(donut.getAttribute('data-pmc')) || 0;
+    donut.style.background = 'conic-gradient(#e5484d 0 ' + phc + 'deg, #f5a524 ' + phc + 'deg ' + (phc + pmc) + 'deg, #30a46c ' + (phc + pmc) + 'deg 360deg)';
+  }
+
+  var hotspotEl = document.getElementById('hotspot-data');
+  var incidentEl = document.getElementById('incident-data');
+  var hotspotData = hotspotEl ? JSON.parse(hotspotEl.textContent || '[]') : [];
+  var incidentData = incidentEl ? JSON.parse(incidentEl.textContent || '[]') : [];
+
+  if (typeof L === 'undefined') {
+    console.warn("Leaflet library not loaded");
+    return;
+  }
+
+  // Centered precisely on Pimpri Chinchwad University (PCU), Sate, Maval
+  const pcuCenter = [18.749034, 73.606889];
+  const map = L.map('hotspot-map', {
+    center: pcuCenter,
+    zoom: 17,
+    zoomControl: true
+  });
+
+  // Base Tile Layers (Google Terrain, Google Satellite Hybrid, Google Streets, OSM)
+  const baseLayers = {
+    terrain: L.tileLayer('https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['0', '1', '2', '3'],
+      attribution: '© Google Maps · Terrain & Topography'
+    }),
+    satellite: L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['0', '1', '2', '3'],
+      attribution: '© Google Maps · Satellite Aerial & Roads'
+    }),
+    google: L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['0', '1', '2', '3'],
+      attribution: '© Google Maps · Standard Roads'
+    }),
+    osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors'
+    })
+  };
+
+  // Active layer mode (defaults to Terrain mode as requested!)
+  let activeBaseKey = localStorage.getItem('pcu_map_layer') || 'terrain';
+  if (!baseLayers[activeBaseKey]) activeBaseKey = 'terrain';
+  baseLayers[activeBaseKey].addTo(map);
+
+  window.setMapBaseLayer = function(layerKey) {
+    if (!baseLayers[layerKey]) return;
+    Object.values(baseLayers).forEach(layer => map.removeLayer(layer));
+    baseLayers[layerKey].addTo(map);
+    localStorage.setItem('pcu_map_layer', layerKey);
+
+    document.querySelectorAll('.map-layer-btn').forEach(btn => btn.classList.remove('active'));
+    const activeBtn = document.getElementById('btn-layer-' + layerKey);
+    if (activeBtn) activeBtn.classList.add('active');
+  };
+
+  // Sync button active style with initial layer
+  setMapBaseLayer(activeBaseKey);
+
+  let wardLayers = [];
+  let labelLayers = [];
+
+  // Plot Campus Building density zones & physical facility labels
+  hotspotData.forEach(function(w) {
+    const circle = L.circle([w.lat, w.lon], {
+      color: w.color,
+      fillColor: w.color,
+      fillOpacity: 0.35,
+      radius: w.radius || 42,
+      weight: 2.5
+    });
+
+    circle.bindPopup(`
+      <div style="font-family: inherit; font-size: 13px; line-height: 1.4;">
+        <h4 style="margin: 0 0 4px; color: #1e2a4a;"><b>${w.ward}</b></h4>
+        <div style="font-size: 11px; color: #5b6478; margin-bottom: 6px;">${w.name} (${w.type || 'Facility'})</div>
+        <p style="margin: 0 0 4px;"><b>Grievance Density:</b> <span style="color:${w.color}; font-weight:700;">${w.intensity}</span> (${w.total} complaints, ${w.share}%)</p>
+        <p style="margin: 0;"><b>Dominant issue:</b> <span style="color:#3b5bdb; font-weight:600;">${w.top_category}</span></p>
+      </div>
+    `);
+    wardLayers.push(circle);
+
+    // Campus building permanent label badge
+    const labelIcon = L.divIcon({
+      className: 'custom-building-label-wrap',
+      html: `<div class="campus-building-label"><span class="b-dot" style="background:${w.color};"></span><span>${w.ward}</span></div>`,
+      iconSize: [110, 24],
+      iconAnchor: [55, -8]
+    });
+    const labelMarker = L.marker([w.lat, w.lon], { icon: labelIcon });
+    labelMarker.on('click', () => circle.openPopup());
+    labelLayers.push(labelMarker);
+  });
+
+  const wardGroup = L.layerGroup(wardLayers).addTo(map);
+  const labelGroup = L.layerGroup(labelLayers).addTo(map);
+
+  // Plot individual incident pins
+  let markerLayers = [];
+  const markerGroup = L.layerGroup().addTo(map);
+
+  function renderMarkers(filterType) {
+    markerGroup.clearLayers();
+    markerLayers = [];
+
+    incidentData.forEach(function(inc) {
+      if (!inc.lat || !inc.lon) return;
+      if (filterType === 'High' && inc.priority !== 'High') return;
+      if (filterType === 'suspicious' && !inc.is_suspicious) return;
+      if (filterType !== 'all' && filterType !== 'High' && filterType !== 'suspicious' && inc.category !== filterType) return;
+
+      let color = '#30a46c';
+      if (inc.is_suspicious) color = '#7950f2';
+      else if (inc.priority === 'High') color = '#e5484d';
+      else if (inc.priority === 'Medium') color = '#f5a524';
+
+      const marker = L.circleMarker([inc.lat, inc.lon], {
+        radius: inc.is_suspicious ? 7 : (inc.priority === 'High' ? 6.5 : 5),
+        color: '#ffffff',
+        weight: 2,
+        fillColor: color,
+        fillOpacity: 0.95
+      });
+
+      const dupBadge = inc.is_duplicate ? '<span style="background:#efe9fd;color:#7048e8;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">Duplicate</span>' : '';
+      const suspBadge = inc.is_suspicious ? '<span style="background:#f3e8ff;color:#7950f2;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;">⚠️ Suspicious</span>' : '';
+      const photoBadge = inc.image_url ? '<span style="background:#e8f4fd;color:#1971c2;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;">📷 Photo</span>' : '';
+
+      const locationDetails = [inc.floor, inc.room_number, inc.sub_location].filter(Boolean).join(' · ');
+
+      const imageSnippet = inc.image_url ? `
+        <div style="margin: 6px 0;">
+          <img src="${inc.image_url}" style="width: 100%; max-height: 95px; object-fit: cover; border-radius: 6px; border: 1px solid #dce4f7; cursor: pointer;" onclick="openLightbox('${inc.image_url}')" title="Click to view full photo evidence">
+        </div>
+      ` : '';
+
+      marker.bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; max-width: 250px; line-height: 1.4;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+            <b>#${inc.id} · ${inc.ward}</b>
+            <span style="font-weight:700; color:${color};">${inc.priority}</span>
+          </div>
+          ${locationDetails ? `<div style="font-size:11px; color:#3b5bdb; margin-bottom:3px; font-weight:600;">📍 ${locationDetails}</div>` : ''}
+          ${imageSnippet}
+          <div style="font-weight:600; margin-bottom:4px; color:#1e2a4a;">${inc.title}</div>
+          <div style="font-size:11px; color:#5b6478; margin-bottom:6px;">Category: <b>${inc.category}</b></div>
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">${dupBadge} ${suspBadge} ${photoBadge}</div>
+        </div>
+      `);
+      markerGroup.addLayer(marker);
+      markerLayers.push(marker);
+    });
+  }
+
+  renderMarkers('all');
+
+  window.filterMap = function(filterType, btn) {
+    document.querySelectorAll('.map-filter-btn').forEach(b => {
+      b.classList.remove('active');
+      b.style.background = '';
+      b.style.color = '';
+    });
+    if (btn) {
+      btn.classList.add('active');
+      btn.style.background = 'var(--brand-2)';
+      btn.style.color = '#fff';
+    }
+    renderMarkers(filterType);
+  };
+
+  // Recenter map on PCU Campus Center
+  window.resetMapCenter = function() {
+    map.setView(pcuCenter, 17, { animate: true });
+  };
+
+  // Toggle building labels visibility
+  let labelsVisible = true;
+  window.toggleBuildingLabels = function() {
+    labelsVisible = !labelsVisible;
+    const btn = document.getElementById('btn-toggle-labels');
+    if (labelsVisible) {
+      map.addLayer(labelGroup);
+      if (btn) btn.style.background = '';
+    } else {
+      map.removeLayer(labelGroup);
+      if (btn) btn.style.background = '#eef0f7';
+    }
+  };
+
+  // Native Leaflet Layer Control (top-right)
+  L.control.layers({
+    "⛰️ Google Terrain": baseLayers.terrain,
+    "🛰️ Satellite (Hybrid)": baseLayers.satellite,
+    "🗺️ Google Streets": baseLayers.google,
+    "🌐 OpenStreetMap": baseLayers.osm
+  }, {
+    "🏢 Building Intensity Zones": wardGroup,
+    "🏷️ Campus Building Labels": labelGroup,
+    "📍 Incident Pins": markerGroup
+  }, { position: 'topright' }).addTo(map);
+});
+</script>
+
 {% endblock %}
+

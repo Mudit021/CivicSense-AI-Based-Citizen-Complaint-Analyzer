@@ -42,7 +42,7 @@ def generate_pdf(report: dict) -> Path:
                             leftMargin=18 * mm, rightMargin=18 * mm,
                             topMargin=18 * mm, bottomMargin=18 * mm)
     story = [
-        Paragraph("CivicSense — Civic Complaint Intelligence", title_style),
+        Paragraph("PCU CivicSense — Campus Grievance Intelligence", title_style),
         Paragraph(report["title"], sub_style),
         Paragraph(f"Generated {datetime.now().strftime('%d %B %Y, %H:%M')}",
                   sub_style),
@@ -92,9 +92,20 @@ def generate_excel(report: dict) -> Path:
         overview.append([f"{c} category", report["stats"]["by_category"].get(c, 0)])
 
     complaints = [
-        {k: r.get(k) for k in
-         ("id", "ward", "source", "category", "priority", "status",
-          "title", "created_at", "confidence")}
+        {
+            "ID": r.get("id"),
+            "Campus Block": r.get("ward"),
+            "Floor": r.get("floor", ""),
+            "Room/Facility": r.get("room_number", ""),
+            "Sub Location": r.get("sub_location", ""),
+            "Source": r.get("source"),
+            "Category": r.get("category"),
+            "Priority": r.get("priority"),
+            "Status": r.get("status"),
+            "Title": r.get("title"),
+            "Created At": r.get("created_at"),
+            "Confidence": r.get("confidence"),
+        }
         for r in rows
     ]
     breakdown = [
