@@ -211,12 +211,12 @@
             <td class="title-cell">
               <div style="display:flex; align-items:center; gap:8px;">
                 {% if c.image_url %}
-                <span class="thumb-modal-link" onclick="openComplaintModal({{ c.id }})" title="View photo evidence & details">
+                <span class="thumb-modal-link" data-cid="{{ c.id }}" onclick="openComplaintModal(this.dataset.cid)" title="View photo evidence & details">
                   <img src="{{ c.image_url }}" alt="Photo">
                 </span>
                 {% endif %}
                 <div>
-                  <a href="{{ url_for('complaint_detail', cid=c.id) }}" onclick="event.preventDefault(); openComplaintModal({{ c.id }});" class="complaint-link" style="font-weight:600; font-size:13px; display:inline-block;">{{ c.title }}</a>
+                  <a href="{{ url_for('complaint_detail', cid=c.id) }}" data-cid="{{ c.id }}" onclick="event.preventDefault(); openComplaintModal(this.dataset.cid);" class="complaint-link" style="font-weight:600; font-size:13px; display:inline-block;">{{ c.title }}</a>
                   {% if c.sub_location %}<div class="muted" style="font-size:11px;">{{ c.sub_location }}</div>{% endif %}
                 </div>
               </div>
