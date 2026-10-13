@@ -258,3 +258,165 @@ def get_hotspot_summary(ward_counts_data: list) -> list:
         })
 
     return sorted(out, key=lambda x: x["total"], reverse=True)
+
+
+# ---------------------------------------------------------------------------
+# Pillar 4: Spatio-Temporal Infrastructure Cascade Kernel (ST-ICK)
+# ---------------------------------------------------------------------------
+# Physical campus infrastructure adjacency matrix W_topo
+# Captures shared electrical feeders, water mains, and optical fiber distribution
+CAMPUS_INFRASTRUCTURE_LINKS = {
+    # Power Distribution Loop 1 (South-West Riser)
+    ("A Block", "B Block"): 0.85,
+    ("B Block", "C Block"): 0.85,
+    ("B Block", "Cafeteria"): 0.75,
+    ("C Block", "Cafeteria"): 0.70,
+    ("C Block", "Main Gate 1 (Entry)"): 0.65,
+
+    # Water Supply Main Loop (North-East Trunk)
+    ("Girls Hostel", "Boys Hostel"): 0.85,
+    ("Girls Hostel", "Central Canteen"): 0.80,
+    ("Central Canteen", "Admin Block"): 0.75,
+    ("Admin Block", "Lawn 1"): 0.60,
+    ("Girls Hostel", "Main Gate 2 (Exit)"): 0.70,
+
+    # Central Core Distribution
+    ("Admin Block", "A Block"): 0.65,
+    ("Admin Block", "B Block"): 0.60,
+    ("Central Canteen", "Lawn 2"): 0.55,
+    ("Sports Lawn", "B Block"): 0.50,
+}
+
+
+def get_topological_weight(block_a: str, block_b: str, floor_a: str = "", floor_b: str = "") -> float:
+    """Compute physical infrastructure adjacency between campus locations."""
+    if block_a == block_b:
+        # Same building: if same floor or adjacent vertical riser duct, high affinity
+        if floor_a and floor_b and floor_a == floor_b:
+            return 1.0
+        return 0.90
+
+    pair = (block_a, block_b)
+    rev_pair = (block_b, block_a)
+    if pair in CAMPUS_INFRASTRUCTURE_LINKS:
+        return CAMPUS_INFRASTRUCTURE_LINKS[pair]
+    if rev_pair in CAMPUS_INFRASTRUCTURE_LINKS:
+        return CAMPUS_INFRASTRUCTURE_LINKS[rev_pair]
+
+    return 0.15  # Baseline distant campus link
+
+
+def detect_cascading_incidents(complaints: list, time_window_hours: float = 24.0) -> list:
+    """Pillar 4: Spatio-Temporal Infrastructure Cascade Kernel (ST-ICK).
+    
+    Identifies multi-point infrastructural failures that stem from a single shared
+    root-cause (e.g. electrical feeder phase drop or water main rupture across adjacent blocks).
+    """
+    from datetime import datetime
+    import math
+
+    if not complaints or len(complaints) < 2:
+        return []
+
+    # Filter to active/open complaints
+    active = [c for c in complaints if c.get("status") in ("Open", "In Progress", None)]
+    if len(active) < 2:
+        return []
+
+    cascades = []
+    visited_ids = set()
+
+    for i in range(len(active)):
+        ci = active[i]
+        cid = ci["id"]
+        if cid in visited_ids:
+            continue
+
+        cluster = [ci]
+        cat_i = ci.get("category", "")
+        ward_i = ci.get("ward", "")
+        time_i_str = ci.get("created_at", "")
+
+        try:
+            dt_i = datetime.fromisoformat(time_i_str)
+        except Exception:
+            dt_i = datetime.now()
+
+        for j in range(i + 1, len(active)):
+            cj = active[j]
+            cjd = cj["id"]
+            if cjd in visited_ids:
+                continue
+
+            cat_j = cj.get("category", "")
+            ward_j = cj.get("ward", "")
+            time_j_str = cj.get("created_at", "")
+
+            try:
+                dt_j = datetime.fromisoformat(time_j_str)
+            except Exception:
+                dt_j = datetime.now()
+
+            # Time delta in hours
+            dt_hours = abs((dt_i - dt_j).total_seconds()) / 3600.0
+            if dt_hours > time_window_hours:
+                continue
+
+            # Category compatibility (same domain or cross-domain hazard)
+            same_category = (cat_i == cat_j)
+            is_infra_hazard = ("Electricity" in cat_i and "Electricity" in cat_j) or \
+                              ("Water" in cat_i and "Water" in cat_j) or \
+                              ("Infrastructure" in cat_i and "Electricity" in cat_j)
+
+            if not (same_category or is_infra_hazard):
+                continue
+
+            # Topological infrastructure adjacency weight
+            w_topo = get_topological_weight(ward_i, ward_j, ci.get("floor", ""), cj.get("floor", ""))
+
+            # Temporal decay kernel: exp(-dt / tau) with tau = 8 hours
+            k_time = math.exp(-dt_hours / 8.0)
+
+            # Spatio-Temporal Affinity A_ij
+            affinity = w_topo * k_time
+
+            # Cascade Threshold
+            if affinity >= 0.40:
+                cluster.append(cj)
+                visited_ids.add(cjd)
+
+        if len(cluster) >= 2:
+            visited_ids.add(cid)
+            # Determine root building & hypothesis
+            blocks = list({c.get("ward", "") for c in cluster})
+            total_high = sum(1 for c in cluster if c.get("priority") == "High")
+            
+            # Formulate root-cause diagnosis
+            shared_cat = cluster[0].get("category", "General Infrastructure")
+            if "Electricity" in shared_cat:
+                hypothesis = f"Shared Electrical Riser / Transformer Feeder Trip linking {', '.join(blocks)}."
+                action = "Dispatch High-Voltage Substation Engineering Team to inspect central panel."
+            elif "Water" in shared_cat:
+                hypothesis = f"Common Water Main Pressure Drop or Overhead Pump Failure affecting {', '.join(blocks)}."
+                action = "Inspect Central Reservoir Pump & Riser Non-Return Valves."
+            elif "Classroom" in shared_cat:
+                hypothesis = f"Floor-wide Networking / Power Distribution Unit Outage across {', '.join(blocks)}."
+                action = "Reboot Building Core Switch & Check Secondary UPS Backup."
+            else:
+                hypothesis = f"Spatially Coincident Infrastructure Incident Cascade in {', '.join(blocks)}."
+                action = "Initiate Joint Facility Inspection Protocol."
+
+            cascades.append({
+                "cascade_id": f"CAS-{len(cascades) + 1:03d}",
+                "primary_category": shared_cat,
+                "incident_count": len(cluster),
+                "affected_buildings": blocks,
+                "complaint_ids": [c["id"] for c in cluster],
+                "severity": "Critical Cascade" if total_high > 0 else "Moderate Cascade",
+                "hypothesis": hypothesis,
+                "recommended_action": action,
+                "earliest_report": min(c.get("created_at", "") for c in cluster),
+                "latest_report": max(c.get("created_at", "") for c in cluster),
+            })
+
+    return sorted(cascades, key=lambda x: x["incident_count"], reverse=True)

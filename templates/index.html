@@ -89,15 +89,32 @@
   </div>
 
   <div class="card">
-    <h2 class="card-title">Daily inflow · last {{ trend | length }} days</h2>
-    <div class="bars">
-      {% for day, count in trend %}
-      <div class="bar-col" title="{{ day }}: {{ count }}">
-        <div class="bar-val">{{ count }}</div>
-        <div class="bar" data-height="{{ (count / (max_trend or 1) * 100) | round(1) }}"></div>
-        <div class="bar-label">{{ day }}</div>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+      <h2 class="card-title" style="margin:0;">Daily Inflow <span class="hint">· Last {{ trend | length }} Days</span></h2>
+      <span class="badge" style="background:#eef2ff; color:#4338ca; font-size:11px; font-weight:700;">{{ stats.total }} Total</span>
+    </div>
+    
+    <div class="bars-chart-container">
+      <div class="bars-plot">
+        {% for day, count in trend %}
+        <div class="bar-col" title="{{ day }}: {{ count }} complaints">
+          <div class="bar-val">{{ count }}</div>
+          <div class="bar-track">
+            <div class="bar" data-height="{{ (count / (max_trend or 1) * 100) | round(1) }}"></div>
+          </div>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
+      <div class="bars-axis-line"></div>
+      <div class="bars-labels-row">
+        {% for day, count in trend %}
+        {% set parts = day.split() %}
+        <div class="bar-label-cell" title="{{ day }}">
+          <span class="label-day">{{ parts[1] if parts | length > 1 else day }}</span>
+          <span class="label-mo">{{ parts[0] if parts | length > 1 else '' }}</span>
+        </div>
+        {% endfor %}
+      </div>
     </div>
   </div>
 </div>

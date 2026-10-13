@@ -3,4 +3,5 @@ __pycache__/
 *.pyc
 data/reports/
 *.jpg
+!static/uploads/pcu_*.jpg
 

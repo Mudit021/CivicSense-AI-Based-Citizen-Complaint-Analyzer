@@ -138,6 +138,43 @@
         </div>
       </div>
 
+      <!-- NCM-Net Research Diagnostics Panel -->
+      <div style="margin: 14px 0 10px; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+          <div style="font-size:12px; font-weight:700; color:#1e40af; display:flex; align-items:center; gap:6px;">
+            <span>🔬 NCM-Net Conformal Risk Control:</span>
+            <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:11px;">
+              {% if result.conformal_prediction and result.conformal_prediction.is_singleton %}
+                Certified Singleton Set |C(X)| = 1
+              {% else %}
+                Multi-Label Set |C(X)| = {{ result.conformal_prediction.set_size if result.conformal_prediction else 1 }}
+              {% endif %}
+            </span>
+          </div>
+          <span class="muted" style="font-size:11px;">{{ result.conformal_prediction.coverage_guarantee if result.conformal_prediction else '90% Coverage Guarantee' }}</span>
+        </div>
+
+        {% if result.conformal_prediction %}
+        <div style="font-size:12px; color:#334155; margin-bottom:6px;">
+          <b>Guaranteed Prediction Set &Copf;(X):</b>
+          <span style="font-family:monospace; background:#fff; padding:2px 8px; border-radius:4px; border:1px solid #cbd5e1; margin-left:4px;">
+            { {{ result.conformal_prediction.prediction_set | join(', ') }} }
+          </span>
+          {% if result.conformal_prediction.escalation_needed %}
+          <span class="badge badge-high" style="font-size:10.5px; margin-left:6px;">Escalation Triggered</span>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if result.symbolic_axioms and result.symbolic_axioms.is_safety_critical %}
+        <div style="margin-top:8px; padding:8px 10px; background:#fef2f2; border:1px solid #fecaca; border-radius:6px; font-size:12px; color:#991b1b;">
+          <b>⚡ Neuro-Symbolic Safety Constraint Triggered:</b>
+          <div style="font-family:monospace; font-size:11px; margin-top:2px;">{{ result.symbolic_axioms.axioms[0].rule }}</div>
+          <div style="font-size:11px; margin-top:2px;">{{ result.symbolic_axioms.axioms[0].rationale }}</div>
+        </div>
+        {% endif %}
+      </div>
+
       <div style="margin: 12px 0 6px; font-size: 12px; color: var(--muted); display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
         <span>📍 <b>PCU Campus GIS:</b> {{ result.lat }}, {{ result.lon }} ({{ result.geo_source | replace('_', ' ') | title }})</span>
         <span><b>Location:</b> {{ result.ward }} {% if result.floor %}· {{ result.floor }}{% endif %} {% if result.room_number %}· {{ result.room_number }}{% endif %}</span>
