@@ -71,6 +71,15 @@ window.handleModalOverlayClick = function(event) {
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
+    const lightbox = document.getElementById('lightbox-modal');
+    if (lightbox && lightbox.classList.contains('active')) {
+      if (typeof window.closeLightbox === 'function') {
+        window.closeLightbox();
+      } else {
+        lightbox.classList.remove('active');
+      }
+      return;
+    }
     closeComplaintModal();
   }
 });
@@ -445,7 +454,16 @@ function syncStatusBadgeOnPage(cid, status) {
 
 window.openLightboxFromModal = function() {
   const img = document.getElementById('m-evidence-img');
-  if (img && img.src && typeof window.openLightbox === 'function') {
-    window.openLightbox(img.src);
+  if (img && img.src) {
+    if (typeof window.openLightbox === 'function') {
+      window.openLightbox(img.src);
+    } else {
+      const modal = document.getElementById('lightbox-modal');
+      const lbImg = document.getElementById('lightbox-img');
+      if (modal && lbImg) {
+        lbImg.src = img.src;
+        modal.classList.add('active');
+      }
+    }
   }
 };
