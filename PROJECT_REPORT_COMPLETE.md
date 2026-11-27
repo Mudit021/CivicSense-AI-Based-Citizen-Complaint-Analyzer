@@ -1,4 +1,4 @@
-# PCU CivicSense: AI-Based Campus Grievance Redressal & Intelligence System
+# AI CivicSense: Intelligent Public Complaint Analysis & Resolution Platform
 ## Comprehensive Major Project & Research Architecture Report (2026)
 
 **Institution:** Pimpri Chinchwad University (PCU), Sate, Maval, Pune  
@@ -17,7 +17,7 @@ Beyond standard municipal grievance management, this Major Project introduces a 
 1. Eliminates multimodal visual noise degradation via **Asymmetric Gated Cross-Modal Alignment (AG-CMA)**.
 2. Replaces uncalibrated point predictions with **Distribution-Free Mondrian Conformal Prediction Sets** providing a certified $90\%$ finite-sample coverage guarantee.
 3. Guarantees **100% Zero-Miss Recall** on life-safety, chemical, and passenger hazards via a **Neuro-Symbolic First-Order Logic (FOL) Constraint Layer**.
-4. Discovers upstream infrastructure failures (e.g. electrical phase drops or plumbing bursts) through a **Spatio-Temporal Infrastructure Cascade Kernel (ST-ICK)**.
+4. Discovers upstream infrastructure failures through a **Spatio-Temporal Infrastructure Cascade Kernel (ST-ICK)** and enables high-velocity resolution through a **1-Click Batch Resolution Engine**.
 
 ---
 
@@ -122,22 +122,10 @@ graph TD
 * **Visual Deduplication:** Hamming distance matching over perceptual image hashes ($d \le 6$).
 * **Spam & Anomaly Detection:** Scikit-Learn **Isolation Forest** paired with regular expressions for commercial spam, promotional URLs, and consonant-smash entropy patterns. Clear documentary photos automatically mitigate false-positive statistical anomalies.
 
-### 4.6 Interactive GIS Campus Hotspot Mapping
-* **13 High-Precision Micro-Coordinates:** Anchored to physical satellite positions at PCU Sate, Maval:
-  * *A Block (Engineering Labs):* $(18.749007, 73.605764)$
-  * *B Block (Management & Media):* $(18.748326, 73.605783)$
-  * *C Block (Central Library & Sciences):* $(18.747520, 73.605866)$
-  * *Cafeteria (Food Court):* $(18.747957, 73.605701)$
-  * *Sports Lawn:* $(18.748218, 73.606277)$
-  * *Lawn 2:* $(18.749012, 73.606363)$
-  * *Central Canteen:* $(18.748958, 73.606766)$
-  * *Admin Block:* $(18.748911, 73.607058)$
-  * *Lawn 1:* $(18.748930, 73.607544)$
-  * *Main Gate 1 (Entry - C Block Side):* $(18.748580, 73.607551)$
-  * *Main Gate 2 (Exit - Girls Hostel Side):* $(18.749231, 73.607650)$
-  * *Girls Hostel:* $(18.749625, 73.606743)$
-  * *Boys Hostel:* $(18.750219, 73.608119)$
+### 4.6 Interactive GIS Campus Hotspot Mapping & Batch Resolution
+* **13 High-Precision Micro-Coordinates:** Anchored to physical satellite positions at PCU Sate, Maval (e.g., A Block: $18.749007, 73.605764$).
 * **Google Maps Terrain & Satellite Hybrid:** Interactive layer switcher enabling instant toggling between **GMaps Terrain**, **Satellite Hybrid**, **Google Streets**, and **OpenStreetMap**.
+* **1-Click Batch Resolution Engine:** Integrates a multimodal cluster detection system that groups similar grievances. Administrators can select all open complaints in a "Cascade Incident" and resolve them in a single atomic transaction, drastically reducing triage time.
 * **Micro-Offsets:** Sub-building coordinates model floor levels and underground basement parking without marker overlap.
 
 ### 4.7 Executive Reporting & Automated Digests
