@@ -1,0 +1,182 @@
+<!-- CivicSense Interactive Complaint Detail Modal -->
+<div id="complaint-detail-modal" class="complaint-modal-overlay" onclick="handleModalOverlayClick(event)">
+  <div class="complaint-modal-container" onclick="event.stopPropagation()">
+    
+    <!-- Modal Header -->
+    <div class="complaint-modal-header">
+      <div class="modal-header-left">
+        <span class="modal-cid-badge" id="m-cid-badge">#0000</span>
+        <span id="m-status-badge" class="badge badge-open">Open</span>
+        <h2 class="modal-title" id="m-title">Loading Grievance...</h2>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="btn btn-resolve-quick" id="m-btn-quick-resolve" onclick="resolveCurrentModalComplaint()">
+          ✓ Mark Resolved
+        </button>
+        <a href="#" id="m-permalink-btn" class="btn secondary small" title="Open full standalone page">Full Page ↗</a>
+        <button type="button" class="modal-close-btn" onclick="closeComplaintModal()" title="Close (Esc)">&times;</button>
+      </div>
+    </div>
+
+    <!-- Modal Scrollable Body -->
+    <div class="complaint-modal-body">
+      
+      <!-- Notification Toast Container -->
+      <div id="modal-toast" class="modal-toast" style="display:none;"></div>
+
+      <div class="detail-grid">
+        
+        <!-- Left / Main Column -->
+        <div class="detail-main-col">
+          
+          <!-- Grievance Description Card -->
+          <div class="card detail-section-card">
+            <div class="detail-card-head">
+              <span class="detail-card-title">📝 Grievance Description</span>
+              <span class="muted text-small" id="m-timestamp">—</span>
+            </div>
+            <div class="complaint-desc-box" id="m-description">Loading description...</div>
+            
+            <div class="location-chips-row" id="m-location-chips">
+              <span class="loc-chip"><b id="m-ward">Block</b></span>
+              <span class="loc-chip" id="m-floor-chip">Floor: <span id="m-floor">—</span></span>
+              <span class="loc-chip" id="m-room-chip">Room: <span id="m-room">—</span></span>
+              <span class="loc-chip" id="m-subloc-chip">Sub-loc: <span id="m-subloc">—</span></span>
+              <span class="loc-chip source-chip">Source: <span id="m-source">Student Portal</span></span>
+            </div>
+          </div>
+
+          <!-- Photo Evidence Card -->
+          <div class="card detail-section-card" id="m-photo-card" style="display:none;">
+            <div class="detail-card-head">
+              <span class="detail-card-title">📷 Photo Evidence & Computer Vision</span>
+              <span class="badge" style="background:#e8f4fd;color:#1971c2;font-size:11px;">Pillar 1: AG-CMA</span>
+            </div>
+            <div class="evidence-display-wrap">
+              <div class="evidence-img-container" onclick="openLightboxFromModal()">
+                <img id="m-evidence-img" src="" alt="Photo Evidence">
+                <div class="img-zoom-hint">🔍 Click to zoom full resolution</div>
+              </div>
+              <div class="evidence-meta-panel" id="m-evidence-meta">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Similar Complaints & 1-Click Batch Resolution Card -->
+          <div class="card detail-section-card similar-section-card">
+            <div class="detail-card-head" style="margin-bottom: 10px;">
+              <div>
+                <span class="detail-card-title">🔗 Similar & Duplicate Grievances</span>
+                <span class="hint" id="m-similar-count-hint">· NCM-Net Multimodal Cluster</span>
+              </div>
+              <span class="badge badge-dup" id="m-similar-badge">0 Similar</span>
+            </div>
+
+            <!-- Batch Resolution Action Bar -->
+            <div class="batch-action-toolbar" id="m-batch-toolbar">
+              <div class="batch-select-all">
+                <input type="checkbox" id="m-select-all-checkbox" onchange="toggleSelectAllSimilar(this.checked)">
+                <label for="m-select-all-checkbox" style="cursor:pointer; font-weight:600; font-size:12.5px;">Select All Open (<span id="m-open-count">0</span>)</label>
+              </div>
+              <div class="batch-buttons">
+                <button type="button" class="btn btn-resolve-batch" id="m-btn-batch-resolve" onclick="resolveBatchSelectedSimilar()" disabled>
+                  ✓ Resolve Selected (<span id="m-selected-count">0</span>)
+                </button>
+              </div>
+            </div>
+
+            <!-- Similar Complaints List -->
+            <div class="similar-list-container" id="m-similar-list">
+              <div class="muted text-center" style="padding: 20px;">Scanning database for similar complaints...</div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right / AI Triage & Meta Column -->
+        <div class="detail-side-col">
+          
+          <!-- Status Management Card -->
+          <div class="card detail-section-card">
+            <span class="detail-card-title">📌 Status & Lifecycle</span>
+            <div style="margin-top: 10px; display:flex; gap:8px; align-items:center;">
+              <select id="m-status-select" class="form-control" style="flex:1; padding:8px 12px; font-weight:600;" onchange="updateModalComplaintStatus(this.value)">
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Closed">Closed</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Pillar 2: NLP Category & Conformal Prediction -->
+          <div class="card detail-section-card">
+            <span class="detail-card-title">🤖 Category Classification</span>
+            <div style="margin-top: 8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="badge badge-cat" id="m-cat-badge" style="font-size:13px; padding:4px 10px;">—</span>
+                <span class="mono" id="m-conf-val" style="font-weight:700; font-size:14px;">0.0%</span>
+              </div>
+              <div class="conf-bar-track">
+                <div class="conf-bar-fill" id="m-conf-fill" style="width:0%"></div>
+              </div>
+            </div>
+
+            <div style="margin-top:14px;" id="m-conformal-box">
+              <div class="meta-label">Pillar 2 Conformal Prediction Set C(X):</div>
+              <div id="m-conformal-tags" style="display:flex; gap:4px; flex-wrap:wrap; margin-top:4px;">
+                <!-- Set items -->
+              </div>
+              <div class="muted text-small" style="margin-top:4px;">90% finite-sample guaranteed coverage</div>
+            </div>
+          </div>
+
+          <!-- Pillar 3: Neuro-Symbolic Triage & Priority -->
+          <div class="card detail-section-card">
+            <span class="detail-card-title">⚡ Triage Priority & Safety</span>
+            <div style="margin-top: 8px; display:flex; justify-content:space-between; align-items:center;">
+              <span class="badge" id="m-prio-badge" style="font-size:14px; padding:4px 12px;">Medium</span>
+              <span class="muted text-small">Score: <b id="m-prio-score" style="color:var(--ink);">0.0</b>/100</span>
+            </div>
+
+            <div id="m-symbolic-rules" style="margin-top:10px;">
+              <!-- Symbolic FOL axioms if triggered -->
+            </div>
+
+            <div class="priority-expl-box" id="m-prio-explanation" style="margin-top:10px;">
+              <!-- Explanation -->
+            </div>
+          </div>
+
+          <!-- Geo-Spatial Coordinates & Anomaly -->
+          <div class="card detail-section-card">
+            <span class="detail-card-title">📍 Spatial Adjacency & Integrity</span>
+            <div class="meta-kv-grid" style="margin-top:8px;">
+              <div class="meta-kv-item">
+                <span class="meta-label">Campus GIS Location:</span>
+                <span class="meta-val" id="m-geo-coords">—</span>
+              </div>
+              <div class="meta-kv-item">
+                <span class="meta-label">Geo Source:</span>
+                <span class="meta-val" id="m-geo-source">Campus GIS</span>
+              </div>
+              <div class="meta-kv-item">
+                <span class="meta-label">Legitimacy Audit:</span>
+                <span class="meta-val" id="m-fraud-status">Clean / Authentic</span>
+              </div>
+              <div class="meta-kv-item" id="m-dup-info" style="display:none;">
+                <span class="meta-label">Duplicate Status:</span>
+                <span class="meta-val" id="m-dup-text">Duplicate</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+</div>

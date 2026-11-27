@@ -210,28 +210,12 @@ python smoke_test.py
 
 ---
 
-## 📄 Submission & Research Deliverables
-
-All formal university reports and research documentation are included in the repository:
-- **Formal Word Document**: [`CIVICSENSE_COMPREHENSIVE_PROJECT_DOCUMENTATION.docx`](CIVICSENSE_COMPREHENSIVE_PROJECT_DOCUMENTATION.docx)
-- **Comprehensive Project Manual**: [`PROJECT_DOCUMENTATION_COMPLETE.md`](PROJECT_DOCUMENTATION_COMPLETE.md)
-- **IEEE/Springer Research Methodology Draft**: [`RESEARCH_PAPER_METHODOLOGY.md`](RESEARCH_PAPER_METHODOLOGY.md)
-- **University Major Project Report (8 Chapters)**: [`PROJECT_REPORT_COMPLETE.md`](PROJECT_REPORT_COMPLETE.md)
-
----
-
 ## 📁 Project Structure
 
 ```
 CivicSense-AI-Based-Citizen-Complaint-Analyzer/
 ├── app.py                                        # Flask web application & REST API routes
 ├── smoke_test.py                                 # Automated end-to-end verification suite
-├── generate_docx_documentation.py                # Publication-grade Word docx generator
-├── install_real_images.py                        # Photographic evidence catalog updater
-├── CIVICSENSE_COMPREHENSIVE_PROJECT_DOCUMENTATION.docx # Generated Word documentation
-├── PROJECT_DOCUMENTATION_COMPLETE.md             # Markdown technical manual
-├── PROJECT_REPORT_COMPLETE.md                    # University major project report
-├── RESEARCH_PAPER_METHODOLOGY.md                 # IEEE/Springer research paper draft
 ├── requirements.txt                              # Python package dependencies
 │
 ├── civic_sense/                                  # Core NCM-Net algorithmic packages
@@ -277,4 +261,4 @@ CivicSense-AI-Based-Citizen-Complaint-Analyzer/
 
 ## 📜 License & Citation
 Developed for academic submission and deployment at Pimpri Chinchwad University (PCU).  
-If utilizing this methodology for research, please reference the **NCM-Net** architecture as documented in [`RESEARCH_PAPER_METHODOLOGY.md`](RESEARCH_PAPER_METHODOLOGY.md).
+If utilizing this methodology for research, please reference the **NCM-Net** architecture described in this README.
